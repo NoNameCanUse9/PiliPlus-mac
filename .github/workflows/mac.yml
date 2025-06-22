@@ -1,0 +1,50 @@
+name: Build for macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        required: false
+        default: 'main'
+
+jobs:
+  build-macos-app:
+    name: Release macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+          fetch-depth: 0
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: 更新版本号
+        run: |
+          version_name=$(yq e '.version' pubspec.yaml | cut -d "+" -f 1)
+          sed -i '' "s/version: .*/version: $version_name+$(git rev-list --count HEAD)/" pubspec.yaml
+      
+      - name: Get Flutter dependencies
+        run: flutter pub get
+      # 运行构建脚本生成 build_config.dart
+      - name: Generate build_config.dart
+        run: |
+          chmod +x lib/scripts/build.sh
+          lib/scripts/build.sh
+      - name: Build macOS
+        run: flutter build macos --release
+
+      - name: Upload macOS app
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-release
+          path: build/macos/Build/Products/Release/
