@@ -35,20 +35,67 @@ jobs:
       
       - name: Get Flutter dependencies
         run: flutter pub get
+
       # 运行构建脚本生成 build_config.dart
       - name: Generate build_config.dart
         run: |
           chmod +x ./lib/scripts/build.dart
           dart lib/scripts/build.dart
+
       - name: Build macOS
-        run: 
-          flutter build macos --release 
-    
+        run: flutter build macos --release
 
+      - name: Get version from pubspec.yaml
+        id: get_version
+        run: |
+          version=$(yq e '.version' pubspec.yaml)
+          echo "version=$version" >> $GITHUB_OUTPUT
 
+      - name: Create macOS app bundle
+        run: |
+          cd build/macos/Build/Products/Release/
+          # 创建 DMG 镜像（可选）
+          # hdiutil create -volname "PiliPlus" -srcfolder . -ov -format UDZO PiliPlus-macOS.dmg
+          
+          # 压缩 app 文件
+          zip -r PiliPlus-macOS-${{ steps.get_version.outputs.version }}.zip *.app
 
-      - name: Upload macOS app
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: PiliPlus macOS v${{ steps.get_version.outputs.version }}
+          body: |
+            ## PiliPlus macOS 版本 v${{ steps.get_version.outputs.version }}
+            
+            ### 更新内容
+            - macOS 版本发布
+            
+            ### 安装说明
+            1. 下载 `PiliPlus-macOS-${{ steps.get_version.outputs.version }}.zip`
+            2. 解压缩文件
+            3. 将 `.app` 文件拖拽到应用程序文件夹
+            
+            ### 系统要求
+            - macOS 10.14 或更高版本
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/macos/Build/Products/Release/PiliPlus-macOS-${{ steps.get_version.outputs.version }}.zip
+          asset_name: PiliPlus-macOS-${{ steps.get_version.outputs.version }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload macOS app (备份)
         uses: actions/upload-artifact@v4
         with:
-          name: macos-release
-          path: build/macos/Build/Products/Release/
+          name: macos-release-${{ steps.get_version.outputs.version }}
+          path: build/macos/Build/Products/Release/PiliPlus-macOS-${{ steps.get_version.outputs.version }}.zip
