@@ -42,9 +42,8 @@ jobs:
           dart lib/scripts/build.dart
       - name: Build macOS
         run: 
-          flutter build macos --release --no-codesign 
-          ln -sf ./build/ios/iphoneos Payload
-          zip -r9 piliplus-mac.app Payload/runner.app
+          flutter build macos --release 
+    
 
 
 
