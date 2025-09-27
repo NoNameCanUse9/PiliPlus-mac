@@ -11,7 +11,6 @@ import 'package:PiliPlus/models_new/space/space/setting.dart';
 import 'package:PiliPlus/models_new/space/space/tab2.dart';
 import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
-import 'package:PiliPlus/utils/date_util.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -26,13 +25,11 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   MemberController({required this.mid});
   int mid;
   String? username;
-  RxBool showUname = false.obs;
 
   AccountService accountService = Get.find<AccountService>();
 
   Live? live;
   int? silence;
-  String? endTime;
 
   int? isFollowed; // 被关注
   RxInt relation = 0.obs;
@@ -43,20 +40,12 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   late List<Tab> tabs;
   TabController? tabController;
   RxInt contributeInitialIndex = 0.obs;
-  late final implTabs = const [
-    'home',
-    'dynamic',
-    'contribute',
-    'favorite',
-    'bangumi',
-  ];
 
   bool? hasSeasonOrSeries;
 
   final fromViewAid = Get.parameters['from_view_aid'];
 
   final key = GlobalKey<ExtendedNestedScrollViewState>();
-  int offset = 120;
 
   @override
   void onInit() {
@@ -66,7 +55,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
 
   @override
   bool customHandleResponse(bool isRefresh, Success<SpaceData> response) {
-    SpaceData data = response.response;
+    final data = response.response;
     username = data.card?.name ?? '';
     isFollowed = data.card?.relation?.isFollowed;
     if (data.relation == -1) {
@@ -74,8 +63,8 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
     } else {
       relation.value = data.card?.relation?.isFollow == 1
           ? data.relSpecial == 1
-              ? -10
-              : data.card?.relation?.status ?? 2
+                ? -10
+                : data.card?.relation?.status ?? 2
           : 0;
     }
     tab2 = data.tab2;
@@ -85,18 +74,9 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         data.series?.item?.isNotEmpty == true) {
       hasSeasonOrSeries = true;
     }
-    if (data.card?.endTime != null) {
-      if (data.card!.endTime == 0) {
-        endTime = ': 永久封禁';
-      } else if (data.card!.endTime! >
-          DateTime.now().millisecondsSinceEpoch ~/ 1000) {
-        endTime =
-            '：至 ${DateUtil.longFormatDs.format(DateTime.fromMillisecondsSinceEpoch(data.card!.endTime! * 1000))}';
-      }
-    }
-    tab2?.retainWhere((item) => implTabs.contains(item.param));
+    tab2?.retainWhere((item) => MemberTabType.contains(item.param!));
     if (tab2?.isNotEmpty == true) {
-      if (data.tab!.hasItem != true && tab2!.first.param == 'home') {
+      if (data.hasItem != true && tab2!.first.param == 'home') {
         // remove empty home tab
         tab2!.removeAt(0);
       }
@@ -150,7 +130,6 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
       vsync: this,
       length: tabs.length,
     );
-    showUname.value = true;
     username = errMsg;
     loadingState.value = const Success(null);
     return true;
@@ -158,9 +137,9 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
 
   @override
   Future<LoadingState<SpaceData>> customGetData() => MemberHttp.space(
-        mid: mid,
-        fromViewAid: fromViewAid,
-      );
+    mid: mid,
+    fromViewAid: fromViewAid,
+  );
 
   void blockUser(BuildContext context) {
     if (!accountService.isLogin.value) {
@@ -187,7 +166,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
                 _onBlock();
               },
               child: const Text('确认'),
-            )
+            ),
           ],
         );
       },
@@ -199,13 +178,14 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   }
 
   Future<void> _onBlock() async {
+    final isBlocked = relation.value == 128;
     var res = await VideoHttp.relationMod(
       mid: mid,
-      act: relation.value != 128 ? 5 : 6,
+      act: isBlocked ? 6 : 5,
       reSrc: 11,
     );
     if (res['status']) {
-      relation.value = relation.value != 128 ? 128 : 0;
+      relation.value = isBlocked ? 0 : 128;
     }
   }
 
@@ -223,9 +203,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
         context: context,
         mid: mid,
         isFollow: isFollow,
-        callback: (attribute) {
-          relation.value = attribute;
-        },
+        callback: (attribute) => relation.value = attribute,
       );
     }
   }
@@ -237,11 +215,7 @@ class MemberController extends CommonDataController<SpaceData, SpaceData?>
   }
 
   Future<void> onRemoveFan() async {
-    final res = await VideoHttp.relationMod(
-      mid: mid,
-      act: 7,
-      reSrc: 11,
-    );
+    final res = await VideoHttp.relationMod(mid: mid, act: 7, reSrc: 11);
     if (res['status']) {
       isFollowed = null;
       if (relation.value == 4) {

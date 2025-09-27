@@ -82,7 +82,8 @@ class _SharePanelState extends State<SharePanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.all(12) +
+      padding:
+          const EdgeInsets.all(12) +
           MediaQuery.paddingOf(context) +
           MediaQuery.viewInsetsOf(context),
       child: Column(
@@ -111,6 +112,7 @@ class _SharePanelState extends State<SharePanel> {
                   gapSize: 10,
                   itemCount: _userList.length,
                   controller: _scrollController,
+                  padding: EdgeInsets.zero,
                   childBuilder: (index) {
                     final item = _userList[index];
                     return GestureDetector(
@@ -150,8 +152,9 @@ class _SharePanelState extends State<SharePanel> {
                                 width: 50,
                                 height: 50,
                                 decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary
-                                      .withValues(alpha: 0.3),
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.3,
+                                  ),
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     width: 1.5,
@@ -235,8 +238,10 @@ class _SharePanelState extends State<SharePanel> {
                     ),
                     filled: true,
                     isDense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     fillColor: theme.colorScheme.onInverseSurface,
                   ),
                   inputFormatters: [LengthLimitingTextInputFormatter(100)],
@@ -257,8 +262,10 @@ class _SharePanelState extends State<SharePanel> {
                 },
                 style: FilledButton.styleFrom(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity:
-                      const VisualDensity(horizontal: -2, vertical: -1),
+                  visualDensity: const VisualDensity(
+                    horizontal: -2,
+                    vertical: -1,
+                  ),
                 ),
                 child: const Text('发送'),
               ),

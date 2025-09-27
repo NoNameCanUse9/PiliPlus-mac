@@ -1,5 +1,6 @@
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/common/widgets/keep_alive_wrapper.dart';
+import 'package:PiliPlus/common/widgets/list_tile.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
 import 'package:PiliPlus/common/widgets/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
@@ -8,7 +9,7 @@ import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models_new/upower_rank/rank_info.dart';
 import 'package:PiliPlus/pages/member_upower_rank/controller.dart';
 import 'package:PiliPlus/utils/utils.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ListTile;
 import 'package:get/get.dart';
 
 class UpowerRankPage extends StatefulWidget {
@@ -47,88 +48,117 @@ class _UpowerRankPageState extends State<UpowerRankPage>
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final padding = MediaQuery.viewPaddingOf(context);
     final child = refreshIndicator(
       onRefresh: _controller.onRefresh,
       child: CustomScrollView(
         controller: _controller.scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverPadding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.paddingOf(context).bottom + 80,
+            padding: EdgeInsets.only(bottom: padding.bottom + 100),
+            sliver: Obx(
+              () => _bilidBody(theme, _controller.loadingState.value),
             ),
-            sliver:
-                Obx(() => _bilidBody(theme, _controller.loadingState.value)),
           ),
         ],
       ),
     );
     if (widget.privilegeType == null) {
       return Scaffold(
+        resizeToAvoidBottomInset: false,
         appBar: AppBar(
-          title: Obx(() => _controller.name.value == null
-              ? const SizedBox.shrink()
-              : Text(
-                  '${_controller.name.value} 充电排行榜${_controller.memberTotal == 0 ? '' : '(${_controller.memberTotal})'}')),
+          title: Obx(() {
+            final name = _controller.name.value;
+            return name == null
+                ? const SizedBox.shrink()
+                : Text(
+                    '$name 充电排行榜${_controller.memberTotal == 0 ? '' : '(${_controller.memberTotal})'}',
+                  );
+          }),
+          actions: [
+            TextButton(
+              onPressed: () => Get.toNamed(
+                '/webview',
+                parameters: {
+                  'url':
+                      'https://member.bilibili.com/mall/upower-pay?mid=$_upMid&oid=$_upMid',
+                },
+              ),
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: const Text('充电'),
+            ),
+            const SizedBox(width: 12),
+          ],
         ),
-        body: SafeArea(
-          top: false,
-          bottom: false,
+        body: Padding(
+          padding: EdgeInsets.only(left: padding.left, right: padding.right),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 625),
               child: Obx(
-                () => _controller.tabs.value != null
-                    ? DefaultTabController(
-                        length: _controller.tabs.value!.length,
-                        child: Builder(
-                          builder: (context) {
-                            return Column(
-                              children: [
-                                TabBar(
-                                  isScrollable: true,
-                                  tabAlignment: TabAlignment.start,
-                                  tabs: _controller.tabs.value!
-                                      .map((e) => Tab(
-                                          text:
-                                              '${e.name!}(${e.memberTotal ?? 0})'))
-                                      .toList(),
-                                  onTap: (index) {
-                                    if (!DefaultTabController.of(context)
-                                        .indexIsChanging) {
-                                      try {
-                                        if (index == 0) {
-                                          _controller.animateToTop();
-                                        } else {
-                                          Get.find<UpowerRankController>(
-                                                  tag:
-                                                      '$_tag${_controller.tabs.value![index].privilegeType}')
-                                              .animateToTop();
-                                        }
-                                      } catch (_) {}
-                                    }
-                                  },
-                                ),
-                                Expanded(
-                                  child: tabBarView(
-                                    children: [
-                                      KeepAliveWrapper(
-                                          builder: (context) => child),
-                                      ..._controller.tabs.value!
-                                          .sublist(1)
-                                          .map((e) => UpowerRankPage(
+                () {
+                  final tabs = _controller.tabs.value;
+                  return tabs != null
+                      ? DefaultTabController(
+                          length: tabs.length,
+                          child: Builder(
+                            builder: (context) {
+                              return Column(
+                                children: [
+                                  TabBar(
+                                    isScrollable: true,
+                                    tabAlignment: TabAlignment.start,
+                                    tabs: tabs
+                                        .map(
+                                          (e) => Tab(
+                                            text:
+                                                '${e.name!}(${e.memberTotal ?? 0})',
+                                          ),
+                                        )
+                                        .toList(),
+                                    onTap: (index) {
+                                      if (!DefaultTabController.of(
+                                        context,
+                                      ).indexIsChanging) {
+                                        try {
+                                          if (index == 0) {
+                                            _controller.animateToTop();
+                                          } else {
+                                            Get.find<UpowerRankController>(
+                                              tag:
+                                                  '$_tag${tabs[index].privilegeType}',
+                                            ).animateToTop();
+                                          }
+                                        } catch (_) {}
+                                      }
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: tabBarView(
+                                      children: [
+                                        KeepAliveWrapper(
+                                          builder: (context) => child,
+                                        ),
+                                        ...tabs
+                                            .sublist(1)
+                                            .map(
+                                              (e) => UpowerRankPage(
                                                 upMid: _upMid,
                                                 tag: _tag,
                                                 privilegeType: e.privilegeType,
-                                              ))
-                                    ],
+                                              ),
+                                            ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      )
-                    : child,
+                                ],
+                              );
+                            },
+                          ),
+                        )
+                      : child;
+                },
               ),
             ),
           ),
@@ -140,17 +170,19 @@ class _UpowerRankPageState extends State<UpowerRankPage>
   }
 
   Widget _bilidBody(
-      ThemeData theme, LoadingState<List<UpowerRankInfo>?> loadingState) {
+    ThemeData theme,
+    LoadingState<List<UpowerRankInfo>?> loadingState,
+  ) {
     late final width = MediaQuery.textScalerOf(context).scale(32);
     return switch (loadingState) {
       Loading() => const SliverToBoxAdapter(
-          child: SizedBox(
-            height: 125,
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
+        child: SizedBox(
+          height: 125,
+          child: Center(
+            child: CircularProgressIndicator(),
           ),
         ),
+      ),
       Success<List<UpowerRankInfo>?>(:var response) =>
         response?.isNotEmpty == true
             ? SliverList.builder(
@@ -221,9 +253,9 @@ class _UpowerRankPageState extends State<UpowerRankPage>
               )
             : HttpError(onReload: _controller.onReload),
       Error(:var errMsg) => HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        ),
+        errMsg: errMsg,
+        onReload: _controller.onReload,
+      ),
     };
   }
 

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/text_field/controller.dart';
 import 'package:PiliPlus/grpc/bilibili/main/community/reply/v1.pb.dart'
     show MainListReply, ReplyInfo, SubjectControl, Mode;
 import 'package:PiliPlus/grpc/bilibili/pagination.pb.dart';
@@ -6,11 +7,11 @@ import 'package:PiliPlus/http/reply.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart';
 import 'package:PiliPlus/pages/video/reply_new/view.dart';
-import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:PiliPlus/utils/reply_utils.dart';
 import 'package:PiliPlus/utils/request_utils.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
@@ -19,14 +20,12 @@ import 'package:get/get.dart';
 import 'package:get/get_navigation/src/dialog/dialog_route.dart';
 
 abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
-  RxInt count = (-1).obs;
+  final RxInt count = (-1).obs;
 
-  late Rx<ReplySortType> sortType;
-  late Rx<Mode> mode;
+  late final Rx<ReplySortType> sortType;
+  late final Rx<Mode> mode;
 
-  late final savedReplies = {};
-
-  AccountService accountService = Get.find<AccountService>();
+  final savedReplies = <Object, List<RichTextItem>?>{};
 
   Int64? upMid;
   Int64? cursorNext;
@@ -54,7 +53,8 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
 
   @override
   void checkIsEnd(int length) {
-    if (count.value != -1 && length >= count.value) {
+    final count = this.count.value;
+    if (count != -1 && length >= count) {
       isEnd = true;
     }
   }
@@ -80,8 +80,8 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
   @override
   Future<void> onRefresh() {
     cursorNext = null;
-    paginationReply = null;
     subjectControl = null;
+    paginationReply = null;
     return super.onRefresh();
   }
 
@@ -103,88 +103,116 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     });
   }
 
+  (bool inputDisable, String? hint) get replyHint {
+    bool inputDisable = false;
+    String? hint;
+    try {
+      if (subjectControl != null && subjectControl!.hasRootText()) {
+        final rootText = subjectControl!.rootText;
+        inputDisable = subjectControl!.inputDisable;
+        if (inputDisable) {
+          SmartDialog.showToast(rootText);
+        }
+        if (rootText.contains('可发') || rootText.contains('可见')) {
+          hint = rootText;
+        }
+      }
+    } catch (_) {}
+    return (inputDisable, hint);
+  }
+
   void onReply(
     BuildContext context, {
     int? oid,
     ReplyInfo? replyItem,
     int? replyType,
   }) {
-    assert(replyItem != null || (oid != null && replyType != null));
-    String? hint;
-    try {
-      if (subjectControl != null) {
-        if (subjectControl!.hasSwitcherType() &&
-            subjectControl!.switcherType != 1 &&
-            subjectControl!.hasRootText()) {
-          hint = subjectControl!.rootText;
-        }
+    if (loadingState.value case Error error) {
+      final errMsg = error.errMsg;
+      if (errMsg != null && (error.code == 12061 || error.code == 12002)) {
+        SmartDialog.showToast(errMsg);
+        return;
       }
-    } catch (_) {}
-    dynamic key = oid ?? replyItem!.oid + replyItem.id;
+    }
+
+    assert(replyItem != null || (oid != null && replyType != null));
+
+    final (bool inputDisable, String? hint) = replyHint;
+    if (inputDisable) {
+      return;
+    }
+
+    final key = oid ?? replyItem!.oid + replyItem.id;
     Navigator.of(context)
         .push(
-      GetDialogRoute(
-        pageBuilder: (buildContext, animation, secondaryAnimation) {
-          return ReplyPage(
-            oid: oid ?? replyItem!.oid.toInt(),
-            root: oid != null ? 0 : replyItem!.id.toInt(),
-            parent: oid != null ? 0 : replyItem!.id.toInt(),
-            replyType: replyItem?.type.toInt() ?? replyType!,
-            replyItem: replyItem,
-            initialValue: savedReplies[key],
-            onSave: (reply) {
-              savedReplies[key] = reply;
+          GetDialogRoute(
+            pageBuilder: (buildContext, animation, secondaryAnimation) {
+              return ReplyPage(
+                hint: hint,
+                oid: oid ?? replyItem!.oid.toInt(),
+                root: oid != null ? 0 : replyItem!.id.toInt(),
+                parent: oid != null ? 0 : replyItem!.id.toInt(),
+                replyType: replyItem?.type.toInt() ?? replyType!,
+                replyItem: replyItem,
+                items: savedReplies[key],
+                onSave: (reply) {
+                  if (reply.isEmpty) {
+                    savedReplies.remove(key);
+                  } else {
+                    savedReplies[key] = reply.toList();
+                  }
+                },
+              );
             },
-            hint: hint,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 500),
-        transitionBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.linear;
-
-          var tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-      ),
-    )
+            transitionDuration: const Duration(milliseconds: 500),
+            transitionBuilder: (context, animation, secondaryAnimation, child) {
+              return SlideTransition(
+                position: animation.drive(
+                  Tween(
+                    begin: const Offset(0.0, 1.0),
+                    end: Offset.zero,
+                  ).chain(CurveTween(curve: Curves.linear)),
+                ),
+                child: child,
+              );
+            },
+            settings: RouteSettings(
+              arguments: Get.arguments,
+              name: '${Get.currentRoute}-copy-${Utils.generateRandomString(3)}',
+            ),
+          ),
+        )
         .then(
-      (res) {
-        if (res != null) {
-          savedReplies[key] = null;
-          ReplyInfo replyInfo = RequestUtils.replyCast(res);
-          if (loadingState.value.isSuccess) {
-            List<ReplyInfo>? list = loadingState.value.data;
-            if (list == null) {
-              loadingState.value = Success([replyInfo]);
-            } else {
-              if (oid != null) {
-                list.insert(hasUpTop ? 1 : 0, replyInfo);
+          (res) {
+            if (res != null) {
+              savedReplies.remove(key);
+              ReplyInfo replyInfo = RequestUtils.replyCast(res);
+              if (loadingState.value.isSuccess) {
+                List<ReplyInfo>? list = loadingState.value.data;
+                if (list == null) {
+                  loadingState.value = Success([replyInfo]);
+                } else {
+                  if (oid != null) {
+                    list.insert(hasUpTop ? 1 : 0, replyInfo);
+                  } else {
+                    replyItem!
+                      ..count += 1
+                      ..replies.add(replyInfo);
+                  }
+                  loadingState.refresh();
+                }
               } else {
-                replyItem!
-                  ..count += 1
-                  ..replies.add(replyInfo);
+                loadingState.value = Success([replyInfo]);
               }
-              loadingState.refresh();
-            }
-          } else {
-            loadingState.value = Success([replyInfo]);
-          }
-          count.value += 1;
+              count.value += 1;
 
-          // check reply
-          if (enableCommAntifraud && context.mounted) {
-            onCheckReply(context, replyInfo, isManual: false);
-          }
-        }
-      },
-    );
+              // check reply
+              if (enableCommAntifraud) {
+                onCheckReply(replyInfo, isManual: false);
+              }
+            }
+          },
+        );
   }
 
   void onRemove(int index, ReplyInfo item, int? subIndex) {
@@ -200,8 +228,7 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     loadingState.refresh();
   }
 
-  void onCheckReply(BuildContext context, ReplyInfo replyInfo,
-      {required bool isManual}) {
+  void onCheckReply(ReplyInfo replyInfo, {required bool isManual}) {
     ReplyUtils.onCheckReply(
       replyInfo: replyInfo,
       biliSendCommAntifraud: _biliSendCommAntifraud,
@@ -236,5 +263,11 @@ abstract class ReplyController<R> extends CommonListController<R, ReplyInfo> {
     } else {
       SmartDialog.showToast(res['msg']);
     }
+  }
+
+  @override
+  void onClose() {
+    savedReplies.clear();
+    super.onClose();
   }
 }

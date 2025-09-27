@@ -2,7 +2,7 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
-import 'package:PiliPlus/utils/fav_util.dart';
+import 'package:PiliPlus/utils/fav_utils.dart';
 import 'package:flutter/material.dart';
 
 class FavVideoItem extends StatelessWidget {
@@ -25,13 +25,14 @@ class FavVideoItem extends StatelessWidget {
       type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
-        onLongPress: onLongPress ??
+        onLongPress:
+            onLongPress ??
             (onTap == null
                 ? null
                 : () => imageSaveDialog(
-                      title: item.title,
-                      cover: item.cover,
-                    )),
+                    title: item.title,
+                    cover: item.cover,
+                  )),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
           child: Row(
@@ -79,6 +80,8 @@ class FavVideoItem extends StatelessWidget {
           if (item.intro?.isNotEmpty == true)
             Text(
               item.intro!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: fontSize,
                 color: color,
@@ -93,7 +96,7 @@ class FavVideoItem extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            FavUtil.isPublicFavText(item.attr),
+            FavUtils.isPublicFavText(item.attr),
             style: TextStyle(
               fontSize: fontSize,
               color: color,

@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
@@ -28,19 +29,21 @@ class _FontSizeSelectPageState extends State<FontSizeSelectPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         actions: [
           TextButton(
-              onPressed: () {
-                currentSize = 1.0;
-                setFontSize();
-              },
-              child: const Text('重置')),
+            onPressed: () {
+              currentSize = 1.0;
+              setFontSize();
+            },
+            child: const Text('重置'),
+          ),
           TextButton(onPressed: setFontSize, child: const Text('确定')),
-          const SizedBox(width: 12)
+          const SizedBox(width: 12),
         ],
       ),
-      body: SafeArea(
+      body: ViewSafeArea(
         child: Column(
           children: [
             Expanded(
@@ -52,13 +55,13 @@ class _FontSizeSelectPageState extends State<FontSizeSelectPage> {
               ),
             ),
             Container(
-              width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 border: Border(
-                    top: BorderSide(
-                        color:
-                            theme.colorScheme.primary.withValues(alpha: 0.3))),
+                  top: BorderSide(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                  ),
+                ),
                 color: theme.colorScheme.surface,
               ),
               child: Row(
@@ -84,7 +87,7 @@ class _FontSizeSelectPageState extends State<FontSizeSelectPage> {
                   ),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),

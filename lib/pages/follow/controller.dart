@@ -20,10 +20,9 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
   void onInit() {
     super.onInit();
     int ownerMid = Accounts.main.mid;
-    mid = Get.parameters['mid'] != null
-        ? int.parse(Get.parameters['mid']!)
-        : ownerMid;
-    isOwner = ownerMid == mid;
+    final mid = Get.parameters['mid'];
+    this.mid = mid != null ? int.parse(mid) : ownerMid;
+    isOwner = ownerMid == this.mid;
     name = Get.parameters['name'] ?? Get.find<AccountService>().name.value;
     if (isOwner) {
       queryFollowUpTags();
@@ -32,11 +31,10 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
 
   Future<void> queryFollowUpTags() async {
     var res = await MemberHttp.followUpTags();
-    if (res['status']) {
+    if (res.isSuccess) {
       tabs
-        ..clear()
-        ..addAll(res['data'])
-        ..insert(0, MemberTagItemModel(name: '全部关注'));
+        ..assign(MemberTagItemModel(name: '全部关注'))
+        ..addAll(res.data);
       int initialIndex = 0;
       if (tabController != null) {
         initialIndex = tabController!.index.clamp(0, tabs.length - 1);
@@ -49,7 +47,7 @@ class FollowController extends GetxController with GetTickerProviderStateMixin {
       );
       followState.value = Success(tabs.hashCode);
     } else {
-      followState.value = Error(res['msg']);
+      followState.value = res;
     }
   }
 

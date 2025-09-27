@@ -1,7 +1,8 @@
+import 'package:PiliPlus/common/widgets/list_tile.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -9,9 +10,9 @@ class SetSwitchItem extends StatefulWidget {
   final String? title;
   final String? subtitle;
   final String? setKey;
-  final bool? defaultVal;
+  final bool defaultVal;
   final ValueChanged<bool>? onChanged;
-  final bool? needReboot;
+  final bool needReboot;
   final Widget? leading;
   final Function? onTap;
   final EdgeInsetsGeometry? contentPadding;
@@ -21,9 +22,9 @@ class SetSwitchItem extends StatefulWidget {
     this.title,
     this.subtitle,
     this.setKey,
-    this.defaultVal,
+    this.defaultVal = false,
     this.onChanged,
-    this.needReboot,
+    this.needReboot = false,
     this.leading,
     this.onTap,
     this.contentPadding,
@@ -42,8 +43,10 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     if (widget.setKey == SettingBoxKey.appFontWeight) {
       val = Pref.appFontWeight != -1;
     } else {
-      val = GStorage.setting
-          .get(widget.setKey, defaultValue: widget.defaultVal ?? false);
+      val = GStorage.setting.get(
+        widget.setKey,
+        defaultValue: widget.defaultVal,
+      );
     }
   }
 
@@ -82,8 +85,10 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
             TextButton(
               onPressed: () async {
                 Get.back();
-                await GStorage.setting
-                    .put(SettingBoxKey.badCertificateCallback, true);
+                await GStorage.setting.put(
+                  SettingBoxKey.badCertificateCallback,
+                  true,
+                );
                 val = true;
                 SmartDialog.showToast('重启生效');
                 setState(() {});
@@ -105,7 +110,7 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
     }
 
     widget.onChanged?.call(val);
-    if (widget.needReboot == true) {
+    if (widget.needReboot) {
       SmartDialog.showToast('重启生效');
     }
     setState(() {});
@@ -114,19 +119,21 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    TextStyle titleStyle = widget.titleStyle ??
+    TextStyle titleStyle =
+        widget.titleStyle ??
         theme.textTheme.titleMedium!.copyWith(
-          color:
-              widget.onTap != null && !val ? theme.colorScheme.outline : null,
+          color: widget.onTap != null && !val
+              ? theme.colorScheme.outline
+              : null,
         );
-    TextStyle subTitleStyle =
-        theme.textTheme.labelMedium!.copyWith(color: theme.colorScheme.outline);
+    TextStyle subTitleStyle = theme.textTheme.labelMedium!.copyWith(
+      color: theme.colorScheme.outline,
+    );
     return ListTile(
       contentPadding: widget.contentPadding,
       enabled: widget.onTap != null ? val : true,
-      onTap: () => widget.onTap != null
-          ? widget.onTap?.call()
-          : switchChange(theme, null),
+      onTap: () =>
+          widget.onTap != null ? widget.onTap!() : switchChange(theme, null),
       title: Text(widget.title!, style: titleStyle),
       subtitle: widget.subtitle != null
           ? Text(widget.subtitle!, style: subTitleStyle)
@@ -136,13 +143,6 @@ class _SetSwitchItemState extends State<SetSwitchItem> {
         alignment: Alignment.centerRight,
         scale: 0.8,
         child: Switch(
-          thumbIcon:
-              WidgetStateProperty.resolveWith<Icon?>((Set<WidgetState> states) {
-            if (states.isNotEmpty && states.first == WidgetState.selected) {
-              return const Icon(Icons.done);
-            }
-            return null;
-          }),
           value: val,
           onChanged: (value) => switchChange(theme, value),
         ),

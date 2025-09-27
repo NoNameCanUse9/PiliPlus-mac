@@ -100,36 +100,39 @@ class ReplyUtils {
     }
     void showReplyCheckResult(String message, {bool isBan = false}) {
       Get.dialog(
+        barrierDismissible: isManual,
         AlertDialog(
           title: const Text('评论检查结果'),
           content: SelectableText(message),
-          actions: isBan
-              ? [
-                  TextButton(
-                    onPressed: () {
-                      Get.back();
-                      String? uri;
-                      switch (type) {
-                        case 1:
-                          uri = IdUtils.av2bv(oid);
-                        case 17:
-                          uri = 'https://www.bilibili.com/opus/$oid';
-                      }
-                      if (uri != null) {
-                        Utils.copyText(uri);
-                      }
-                      Get.toNamed(
-                        '/webview',
-                        parameters: {
-                          'url':
-                              'https://www.bilibili.com/h5/comment/appeal?native.theme=2&night=${Get.isDarkMode ? 1 : 0}'
-                        },
-                      );
-                    },
-                    child: const Text('申诉'),
-                  ),
-                ]
-              : null,
+          actions: [
+            TextButton(
+              onPressed: () {
+                Get.back();
+                String? uri;
+                switch (type) {
+                  case 1:
+                    uri = IdUtils.av2bv(oid);
+                  case 17:
+                    uri = 'https://www.bilibili.com/opus/$oid';
+                }
+                if (uri != null) {
+                  Utils.copyText(uri);
+                }
+                Get.toNamed(
+                  '/webview',
+                  parameters: {
+                    'url':
+                        'https://www.bilibili.com/h5/comment/appeal?native.theme=2&night=${Get.isDarkMode ? 1 : 0}',
+                  },
+                );
+              },
+              child: const Text('申诉'),
+            ),
+            TextButton(
+              onPressed: Get.back,
+              child: const Text('关闭'),
+            ),
+          ],
         ),
       );
     }
@@ -144,8 +147,6 @@ class ReplyUtils {
         type: type,
         sort: ReplySortType.time.index,
         page: 1,
-        enableFilter: false,
-        antiGoodsReply: false,
       );
 
       if (res is Error) {
@@ -168,8 +169,6 @@ class ReplyUtils {
             root: id,
             pageNum: 1,
             type: type,
-            filterBanWord: false,
-            antiGoodsReply: false,
           );
 
           if (res1 is Error) {
@@ -185,9 +184,7 @@ class ReplyUtils {
               root: id,
               pageNum: 1,
               type: type,
-              filterBanWord: false,
               isCheck: true,
-              antiGoodsReply: false,
             );
 
             if (res2 is Error) {
@@ -200,29 +197,29 @@ class ReplyUtils {
               );
             } else {
               // found
-              showReplyCheckResult(isManual
-                  ? '无账号状态下找到了你的评论，评论正常！\n\n你的评论：$message'
-                  : '''
+              showReplyCheckResult(
+                isManual
+                    ? '无账号状态下找到了你的评论，评论正常！\n\n你的评论：$message'
+                    : '''
 你评论状态有点可疑，虽然无账号翻找评论区获取不到你的评论，但是无账号可通过
 https://api.bilibili.com/x/v2/reply/reply?oid=$oid&pn=1&ps=20&root=$id&type=$type
 获取你的评论，疑似评论区被戒严或者这是你的视频。
 
-你的评论：$message''');
+你的评论：$message''',
+              );
             }
           }
         }
       }
     } else {
-      for (int i = 1;; i++) {
+      for (int i = 1; ; i++) {
         final res3 = await ReplyHttp.replyReplyList(
           isLogin: false,
           oid: oid,
           root: root,
           pageNum: i,
           type: type,
-          filterBanWord: false,
           isCheck: true,
-          antiGoodsReply: false,
         );
         if (res3 is Error) {
           break;
@@ -242,16 +239,14 @@ https://api.bilibili.com/x/v2/reply/reply?oid=$oid&pn=1&ps=20&root=$id&type=$typ
         }
       }
 
-      for (int i = 1;; i++) {
+      for (int i = 1; ; i++) {
         final res4 = await ReplyHttp.replyReplyList(
           isLogin: true,
           oid: oid,
           root: root,
           pageNum: i,
           type: type,
-          filterBanWord: false,
           isCheck: true,
-          antiGoodsReply: false,
         );
         if (res4 is Error) {
           break;

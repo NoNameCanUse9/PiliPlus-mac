@@ -24,23 +24,24 @@ class SearchText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    late final theme = Theme.of(context);
+    late final colorScheme = Theme.of(context).colorScheme;
     return Material(
-      color: bgColor ?? theme.colorScheme.onInverseSurface,
+      color: bgColor ?? colorScheme.onInverseSurface,
       borderRadius: const BorderRadius.all(Radius.circular(6)),
       child: InkWell(
         onTap: () => onTap?.call(text),
         onLongPress: onLongPress != null ? () => onLongPress!(text) : null,
         borderRadius: const BorderRadius.all(Radius.circular(6)),
         child: Padding(
-          padding: padding ??
+          padding:
+              padding ??
               const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
           child: Text(
             text,
             textAlign: textAlign,
             style: TextStyle(
               fontSize: fontSize,
-              color: textColor ?? theme.colorScheme.onSurfaceVariant,
+              color: textColor ?? colorScheme.onSurfaceVariant,
             ),
           ),
         ),

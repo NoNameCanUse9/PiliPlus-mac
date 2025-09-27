@@ -1,3 +1,4 @@
+import 'package:PiliPlus/common/skeleton/msg_feed_top.dart';
 import 'package:PiliPlus/common/widgets/custom_sliver_persistent_header_delegate.dart';
 import 'package:PiliPlus/models/search/result.dart';
 import 'package:PiliPlus/pages/search_panel/user/controller.dart';
@@ -19,8 +20,13 @@ class SearchUserPanel extends CommonSearchPanel {
   State<SearchUserPanel> createState() => _SearchUserPanelState();
 }
 
-class _SearchUserPanelState extends CommonSearchPanelState<SearchUserPanel,
-    SearchUserData, SearchUserItemModel> {
+class _SearchUserPanelState
+    extends
+        CommonSearchPanelState<
+          SearchUserPanel,
+          SearchUserData,
+          SearchUserItemModel
+        > {
   @override
   late final SearchUserController controller = Get.put(
     SearchUserController(
@@ -46,7 +52,7 @@ class _SearchUserPanelState extends CommonSearchPanelState<SearchUserPanel,
             children: [
               Obx(
                 () => Text(
-                  '排序: ${controller.orderFiltersList[controller.currentOrderFilterval.value]['label']}',
+                  '排序: ${controller.userOrderType!.value.label}',
                   maxLines: 1,
                   style: TextStyle(color: theme.colorScheme.outline),
                 ),
@@ -54,7 +60,7 @@ class _SearchUserPanelState extends CommonSearchPanelState<SearchUserPanel,
               const Spacer(),
               Obx(
                 () => Text(
-                  '用户类型: ${controller.userTypeFiltersList[controller.currentUserTypeFilterval.value]['label']}',
+                  '用户类型: ${controller.userType!.value.label}',
                   maxLines: 1,
                   style: TextStyle(color: theme.colorScheme.outline),
                 ),
@@ -65,8 +71,8 @@ class _SearchUserPanelState extends CommonSearchPanelState<SearchUserPanel,
                 height: 32,
                 child: IconButton(
                   tooltip: '筛选',
-                  style: ButtonStyle(
-                    padding: WidgetStateProperty.all(EdgeInsets.zero),
+                  style: const ButtonStyle(
+                    padding: WidgetStatePropertyAll(EdgeInsets.zero),
                   ),
                   onPressed: () => controller.onShowFilterDialog(context),
                   icon: Icon(
@@ -83,24 +89,31 @@ class _SearchUserPanelState extends CommonSearchPanelState<SearchUserPanel,
     );
   }
 
+  late final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    maxCrossAxisExtent: Grid.smallCardWidth * 2,
+    mainAxisExtent: 66,
+  );
+
   @override
   Widget buildList(ThemeData theme, List<SearchUserItemModel> list) {
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: Grid.smallCardWidth * 2,
-        mainAxisExtent: 66,
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (BuildContext context, int index) {
-          if (index == list.length - 1) {
-            controller.onLoadMore();
-          }
-          return SearchUserItem(
-            item: list[index],
-          );
-        },
-        childCount: list.length,
-      ),
+    return SliverGrid.builder(
+      gridDelegate: gridDelegate,
+      itemBuilder: (BuildContext context, int index) {
+        if (index == list.length - 1) {
+          controller.onLoadMore();
+        }
+        return SearchUserItem(
+          item: list[index],
+        );
+      },
+      itemCount: list.length,
     );
   }
+
+  @override
+  Widget get builLoading => SliverGrid.builder(
+    gridDelegate: gridDelegate,
+    itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
+    itemCount: 10,
+  );
 }

@@ -10,7 +10,7 @@ import 'package:PiliPlus/utils/grid.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class RcmdPage extends CommonPage {
+class RcmdPage extends StatefulWidget {
   const RcmdPage({super.key});
 
   @override
@@ -39,9 +39,9 @@ class _RcmdPageState extends CommonPageState<RcmdPage, RcmdController>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
-              padding: EdgeInsets.only(
+              padding: const EdgeInsets.only(
                 top: StyleString.cardSpace,
-                bottom: MediaQuery.paddingOf(context).bottom,
+                bottom: 100,
               ),
               sliver: Obx(() => _buildBody(controller.loadingState.value)),
             ),
@@ -51,20 +51,22 @@ class _RcmdPageState extends CommonPageState<RcmdPage, RcmdController>
     );
   }
 
+  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
+    mainAxisSpacing: StyleString.cardSpace,
+    crossAxisSpacing: StyleString.cardSpace,
+    maxCrossAxisExtent: Grid.smallCardWidth,
+    childAspectRatio: StyleString.aspectRatio,
+    mainAxisExtent: MediaQuery.textScalerOf(context).scale(90),
+  );
+
   Widget _buildBody(LoadingState<List<dynamic>?> loadingState) {
     return switch (loadingState) {
-      Loading() => _buildSkeleton(),
-      Success(:var response) => response?.isNotEmpty == true
-          ? SliverGrid(
-              gridDelegate: SliverGridDelegateWithExtentAndRatio(
-                mainAxisSpacing: StyleString.cardSpace,
-                crossAxisSpacing: StyleString.cardSpace,
-                maxCrossAxisExtent: Grid.smallCardWidth,
-                childAspectRatio: StyleString.aspectRatio,
-                mainAxisExtent: MediaQuery.textScalerOf(context).scale(90),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (BuildContext context, int index) {
+      Loading() => _buildSkeleton,
+      Success(:var response) =>
+        response?.isNotEmpty == true
+            ? SliverGrid.builder(
+                gridDelegate: gridDelegate,
+                itemBuilder: (context, index) {
                   if (index == response.length - 1) {
                     controller.onLoadMore();
                   }
@@ -77,14 +79,16 @@ class _RcmdPageState extends CommonPageState<RcmdPage, RcmdController>
                         child: Card(
                           child: Container(
                             alignment: Alignment.center,
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                            ),
                             child: Text(
                               '上次看到这里\n点击刷新',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurfaceVariant,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                               ),
                             ),
                           ),
@@ -94,8 +98,8 @@ class _RcmdPageState extends CommonPageState<RcmdPage, RcmdController>
                     int actualIndex = controller.lastRefreshAt == null
                         ? index
                         : index > controller.lastRefreshAt!
-                            ? index - 1
-                            : index;
+                        ? index - 1
+                        : index;
                     return VideoCardV(
                       videoItem: response[actualIndex],
                       onRemove: () {
@@ -112,42 +116,27 @@ class _RcmdPageState extends CommonPageState<RcmdPage, RcmdController>
                   } else {
                     return VideoCardV(
                       videoItem: response[index],
-                      onRemove: () {
-                        controller.loadingState
-                          ..value.data!.removeAt(index)
-                          ..refresh();
-                      },
+                      onRemove: () => controller.loadingState
+                        ..value.data!.removeAt(index)
+                        ..refresh(),
                     );
                   }
                 },
-                childCount: controller.lastRefreshAt != null
+                itemCount: controller.lastRefreshAt != null
                     ? response!.length + 1
                     : response!.length,
-              ),
-            )
-          : HttpError(onReload: controller.onReload),
+              )
+            : HttpError(onReload: controller.onReload),
       Error(:var errMsg) => HttpError(
-          errMsg: errMsg,
-          onReload: controller.onReload,
-        ),
+        errMsg: errMsg,
+        onReload: controller.onReload,
+      ),
     };
   }
 
-  Widget _buildSkeleton() {
-    return SliverGrid(
-      gridDelegate: SliverGridDelegateWithExtentAndRatio(
-        mainAxisSpacing: StyleString.cardSpace,
-        crossAxisSpacing: StyleString.cardSpace,
-        maxCrossAxisExtent: Grid.smallCardWidth,
-        childAspectRatio: StyleString.aspectRatio,
-        mainAxisExtent: MediaQuery.textScalerOf(context).scale(90),
-      ),
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          return const VideoCardVSkeleton();
-        },
-        childCount: 10,
-      ),
-    );
-  }
+  Widget get _buildSkeleton => SliverGrid.builder(
+    gridDelegate: gridDelegate,
+    itemBuilder: (context, index) => const VideoCardVSkeleton(),
+    itemCount: 10,
+  );
 }

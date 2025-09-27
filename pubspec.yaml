@@ -17,11 +17,11 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 # update when release
-version: 1.1.3+1
+version: 1.1.4+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: 3.32.4
+  sdk: ">=3.8.0 <4.0.0"
+  flutter: 3.35.4
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -45,7 +45,7 @@ dependencies:
   # 网络
   dio: ^5.7.0
   cookie_jar: ^4.0.8
-  connectivity_plus: ^6.1.1
+  connectivity_plus: ^7.0.0
   dio_http2_adapter: ^2.5.3
 
   # 图片
@@ -63,16 +63,14 @@ dependencies:
   hive_flutter: ^1.1.0
 
   # 设备信息
-  device_info_plus: ^11.2.0
+  device_info_plus: ^12.1.0
   # 权限
-  permission_handler: ^12.0.0+1
+  # permission_handler: ^12.0.0+1
+  permission_handler_apple: ^9.4.7
+  permission_handler_android: ^13.0.1
+  permission_handler_platform_interface: ^4.3.0
   # 分享
-  # share_plus: ^10.0.2
-  share_plus:
-    git:
-      url: https://github.com/bggRGjQaUbCoE/plus_plugins.git
-      ref: main
-      path: packages/share_plus/share_plus
+  share_plus: ^12.0.0
   # cookie 管理
   # webview_cookie_manager: ^2.0.6
   # 浏览器
@@ -89,7 +87,7 @@ dependencies:
   # 下拉刷新
   # pull_to_refresh_notification: ^3.1.0
   # 图标
-  font_awesome_flutter: ^10.8.0
+  font_awesome_flutter: 10.9.0
   # material_design_icons_flutter: ^7.0.7296
   material_design_icons_flutter:
     git:
@@ -124,13 +122,13 @@ dependencies:
   # universal_platform: ^1.1.0
   auto_orientation:
     git:
-      url: https://github.com/orz12/auto_orientation.git
+      url: https://github.com/bggRGjQaUbCoE/auto_orientation.git
       ref: master
   protobuf: ^4.0.0
   animations: ^2.0.11
 
   # 获取appx信息
-  package_info_plus: ^8.1.1
+  package_info_plus: ^9.0.0
   url_launcher: ^6.3.1
   # 防抖节流
   easy_debounce: ^2.0.3
@@ -150,7 +148,7 @@ dependencies:
   # 状态栏图标控制
   # status_bar_control: ^3.2.1
   # 代理
-  system_proxy: ^0.1.0
+  # system_proxy: ^0.1.0
   # pip
   # floating: ^3.0.0
   floating:
@@ -164,27 +162,27 @@ dependencies:
   # 极验
   gt3_flutter_plugin: ^0.1.0
   uuid: ^4.5.1
-  scrollable_positioned_list: ^0.3.8
+  # scrollable_positioned_list: ^0.3.8
   # nil: ^1.1.1
   catcher_2: ^2.1.0
   logger: ^2.5.0
   #瀑布流
   waterfall_flow: ^3.1.0
   #跑马灯
-  marquee: ^2.3.0
+  # marquee: ^2.3.0
   #富文本
   # extended_text: ^14.1.0
   # chat_bottom_container: ^0.2.0
   chat_bottom_container:
     git:
-      url: https://github.com/pye52/flutter_chat_packages.git
+      url: https://github.com/bggRGjQaUbCoE/flutter_chat_packages.git
       ref: main
       path: packages/chat_bottom_container
   image_picker: ^1.1.2
   intl: ^0.20.2
   archive: ^4.0.0
   flutter_svg: ^2.0.14
-  image_cropper: ^9.1.0
+  image_cropper: ^11.0.0
   #解压直播消息
   brotli: ^0.6.0
   expandable: ^5.0.1
@@ -192,8 +190,12 @@ dependencies:
   live_photo_maker: ^0.0.6
   fl_chart: ^1.0.0
   synchronized: ^3.3.0
-  document_file_save_plus: ^2.0.0
-  webdav_client: ^1.2.2
+  # document_file_save_plus: ^2.0.0
+  # webdav_client: ^1.2.2
+  webdav_client:
+    git:
+      url: https://github.com/wgh136/webdav_client.git
+      ref: main
   re_highlight: ^0.0.3
   cached_network_svg_image: ^1.2.0
   flutter_sortable_wrap:
@@ -201,24 +203,46 @@ dependencies:
       url: https://github.com/bggRGjQaUbCoE/flutter_sortable_wrap.git
       ref: master
   crclib: ^3.0.0
+  web_socket_channel: ^3.0.3
+  image: ^4.5.4
+  window_manager: ^0.5.1
+  tray_manager: ^0.5.1
+  file_picker: ^10.3.3
+  super_sliver_list:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/super_sliver_list.git
+      ref: mod
 
   vector_math: any
   fixnum: any
   json_annotation: any
   stream_transform: any
-  screen_brightness: any
+  screen_brightness_platform_interface: any
   mime: any
   universal_platform: any
   path: any
   collection: any
   material_color_utilities: any
+  flutter_cache_manager: any
+  http2: any
 
 dependency_overrides:
-  screen_brightness: ^2.0.1
+  # screen_brightness: ^2.1.
+  screen_brightness_ios: ^2.1.2
+  screen_brightness_android: ^2.1.3
+  screen_brightness_platform_interface: ^2.1.0
   path: ^1.9.1
   mime: ^2.0.0
-  fading_edge_scrollview: ^4.1.1
   rxdart: ^0.28.0
+  media_kit: 1.1.11
+  media_kit_libs_video: 1.0.5
+  media_kit_native_event_loop: ^1.0.9
+  font_awesome_flutter: 10.9.0
+  media_kit_libs_android_video:
+    git:
+      url: https://github.com/bggRGjQaUbCoE/media-kit.git
+      path: libs/android/media_kit_libs_android_video
+      ref: version_1.2.5
 
 dev_dependencies:
   flutter_test:

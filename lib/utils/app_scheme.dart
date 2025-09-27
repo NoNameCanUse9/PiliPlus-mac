@@ -1,6 +1,12 @@
 import 'dart:async';
 
+import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/http/search.dart';
+import 'package:PiliPlus/models/common/fav_type.dart';
+import 'package:PiliPlus/models/common/video/source_type.dart';
+import 'package:PiliPlus/pages/live/view.dart';
+import 'package:PiliPlus/pages/rank/view.dart';
+import 'package:PiliPlus/pages/subscription_detail/view.dart';
 import 'package:PiliPlus/pages/video/reply_reply/view.dart';
 import 'package:PiliPlus/utils/extension.dart';
 import 'package:PiliPlus/utils/id_utils.dart';
@@ -8,15 +14,16 @@ import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/url_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:app_links/app_links.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-class PiliScheme {
+abstract class PiliScheme {
   static late AppLinks appLinks;
   static StreamSubscription? listener;
   static final uriDigitRegExp = RegExp(r'/(\d+)');
+  static final _prefixRegex = RegExp(r'^\S+://');
 
   static void init() {
     // Register our protocol only on Windows platform
@@ -24,9 +31,7 @@ class PiliScheme {
     appLinks = AppLinks();
 
     listener?.cancel();
-    listener = appLinks.uriLinkStream.listen((uri) {
-      routePush(uri);
-    });
+    listener = appLinks.uriLinkStream.listen(routePush);
   }
 
   static Future<bool> routePushFromUrl(
@@ -40,7 +45,7 @@ class PiliScheme {
     try {
       if (url.startsWith('//')) {
         url = 'https:$url';
-      } else if (!RegExp(r'^\S+://').hasMatch(url)) {
+      } else if (!_prefixRegex.hasMatch(url)) {
         url = 'https://$url';
       }
       return routePush(
@@ -121,23 +126,26 @@ class PiliScheme {
                     'id': commentSecondaryId,
                   },
                   () => Scaffold(
+                    resizeToAvoidBottomInset: false,
                     appBar: AppBar(
                       title: const Text('评论详情'),
                       actions: [
                         IconButton(
                           tooltip: '前往原视频',
                           onPressed: () {
-                            String? enterUri =
-                                uri.toString().split('?').first; // to check
-                            routePush(Uri.parse(enterUri));
+                            routePush(
+                              Uri(
+                                scheme: uri.scheme,
+                                host: uri.host,
+                                path: uri.path,
+                              ),
+                            );
                           },
                           icon: const Icon(Icons.open_in_new),
                         ),
                       ],
                     ),
-                    body: SafeArea(
-                      top: false,
-                      bottom: false,
+                    body: ViewSafeArea(
                       child: VideoReplyReplyPanel(
                         enableSlide: false,
                         oid: int.parse(oid),
@@ -160,22 +168,17 @@ class PiliScheme {
             // to video
             // bilibili://video/12345678?page=0&h5awaken=random
             String? aid = uriDigitRegExp.firstMatch(path)?.group(1);
-            String? bvid = RegExp(r'/(BV[a-z\d]{10})', caseSensitive: false)
-                .firstMatch(path)
-                ?.group(1);
+            String? bvid = IdUtils.bvRegex.firstMatch(path)?.group(0);
             if (aid != null || bvid != null) {
-              if (queryParameters['cid'] != null) {
+              final cid = queryParameters['cid'];
+              if (cid != null) {
                 bvid ??= IdUtils.av2bv(int.parse(aid!));
+                final progress = queryParameters['dm_progress'];
                 PageUtils.toVideoPage(
-                  'bvid=$bvid&cid=${queryParameters['cid']}',
-                  arguments: {
-                    'pic': null,
-                    'heroTag': Utils.makeHeroTag(aid),
-                    if (queryParameters['dm_progress'] != null)
-                      'progress': int.tryParse(queryParameters['dm_progress']!),
-                  },
+                  bvid: bvid,
+                  cid: int.parse(cid),
+                  progress: progress == null ? null : int.parse(progress),
                   off: off,
-                  preventDuplicates: false,
                 );
               } else {
                 videoPush(
@@ -192,7 +195,7 @@ class PiliScheme {
             // bilibili://live/12345678?extra_jump_from=1&from=1&is_room_feed=1&h5awaken=random
             String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
             if (roomId != null) {
-              PageUtils.toDupNamed('/liveRoom?roomid=$roomId', off: off);
+              PageUtils.toLiveRoom(int.parse(roomId), off: off);
               return true;
             }
             return false;
@@ -219,7 +222,8 @@ class PiliScheme {
               );
               return true;
             }
-            return false;
+            Get.toNamed('/search');
+            return true;
           case 'article':
             // bilibili://article/40679479?jump_opus=1&jump_opus_type=1&opus_type=article&h5awaken=random
             String? id = uriDigitRegExp.firstMatch(path)?.group(1);
@@ -238,47 +242,54 @@ class PiliScheme {
           case 'comment':
             if (path.startsWith("/detail/")) {
               // bilibili://comment/detail/17/832703053858603029/238686570016/?subType=0&anchor=238686628816&showEnter=1&extraIntentId=0&scene=1&enterName=%E6%9F%A5%E7%9C%8B%E5%8A%A8%E6%80%81%E8%AF%A6%E6%83%85&enterUri=bilibili://following/detail/832703053858603029
-              List<String> pathSegments = uri.pathSegments;
-              Map<String, String> queryParameters = uri.queryParameters;
-              int type = int.parse(pathSegments[1]); // business_id
-              int oid = int.parse(pathSegments[2]); // subject_id
-              int rootId = int.parse(pathSegments[3]); // root_id // target_id
-              int? rpId = queryParameters['anchor'] != null // source_id
+              final pathSegments = uri.pathSegments;
+              final queryParameters = uri.queryParameters;
+              final type = int.parse(pathSegments[1]); // business_id
+              final oid = int.parse(pathSegments[2]); // subject_id
+              final rootId = int.parse(pathSegments[3]); // root_id // target_id
+              final rpId =
+                  queryParameters['anchor'] !=
+                      null // source_id
                   ? int.tryParse(queryParameters['anchor']!)
                   : null;
               // int subType = int.parse(queryParameters['subType'] ?? '0');
               // int extraIntentId =
               // int.parse(queryParameters['extraIntentId'] ?? '0');
+              final enterUri = queryParameters['enterUri'];
               Get.to(
                 arguments: {
                   'oid': oid,
                   'rpid': rootId,
                   'id': rpId,
                   'type': type,
-                  'enterUri': queryParameters['enterUri'],
+                  'enterUri': enterUri,
                 },
                 () => Scaffold(
+                  resizeToAvoidBottomInset: false,
                   appBar: AppBar(
                     title: const Text('评论详情'),
-                    actions: [
-                      IconButton(
-                        tooltip: '前往',
-                        onPressed: () {
-                          String? enterUri = queryParameters['enterUri'];
-                          if (enterUri != null) {
-                            routePush(Uri.parse(enterUri));
-                          } else {
-                            routePush(
-                                Uri.parse('bilibili://following/detail/$oid'));
-                          }
-                        },
-                        icon: const Icon(Icons.open_in_new),
-                      ),
-                    ],
+                    actions:
+                        enterUri != null || const [11, 16, 17].contains(type)
+                        ? [
+                            IconButton(
+                              tooltip: '前往',
+                              onPressed: () {
+                                if (enterUri != null) {
+                                  routePush(Uri.parse(enterUri));
+                                } else {
+                                  routePush(
+                                    Uri.parse(
+                                      'bilibili://following/detail/$oid',
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.open_in_new),
+                            ),
+                          ]
+                        : null,
                   ),
-                  body: SafeArea(
-                    top: false,
-                    bottom: false,
+                  body: ViewSafeArea(
                     child: VideoReplyReplyPanel(
                       enableSlide: false,
                       oid: oid,
@@ -306,6 +317,7 @@ class PiliScheme {
                   'type': type,
                 },
                 () => Scaffold(
+                  resizeToAvoidBottomInset: false,
                   appBar: AppBar(
                     title: const Text('评论详情'),
                     actions: [
@@ -326,9 +338,7 @@ class PiliScheme {
                       ),
                     ],
                   ),
-                  body: SafeArea(
-                    top: false,
-                    bottom: false,
+                  body: ViewSafeArea(
                     child: VideoReplyReplyPanel(
                       enableSlide: false,
                       oid: oid,
@@ -348,9 +358,10 @@ class PiliScheme {
             // businessId == 17 => dynId == oid
             // bilibili://following/detail/832703053858603029 (dynId)
             // bilibili://following/detail/12345678?comment_root_id=654321\u0026comment_on=1
-            String? cvid = RegExp(r'^/detail/cv(\d+)', caseSensitive: false)
-                .firstMatch(path)
-                ?.group(1);
+            String? cvid = RegExp(
+              r'^/detail/cv(\d+)',
+              caseSensitive: false,
+            ).matchAsPrefix(path)?.group(1);
             if (cvid != null) {
               PageUtils.toDupNamed(
                 '/articlePage',
@@ -380,6 +391,7 @@ class PiliScheme {
                       'id': commentSecondaryId,
                     },
                     () => Scaffold(
+                      resizeToAvoidBottomInset: false,
                       appBar: AppBar(
                         title: const Text('评论详情'),
                         actions: [
@@ -390,9 +402,7 @@ class PiliScheme {
                           ),
                         ],
                       ),
-                      body: SafeArea(
-                        top: false,
-                        bottom: false,
+                      body: ViewSafeArea(
                         child: VideoReplyReplyPanel(
                           enableSlide: false,
                           oid: oid ?? int.parse(dynId),
@@ -440,6 +450,7 @@ class PiliScheme {
             return false;
           // bilibili://browser/?url=https%3A%2F%2Fwww.bilibili.com%2F
           case 'browser':
+            if (selfHandle) return false;
             final url = uri.queryParameters['url'];
             if (url != null) {
               _toWebview(url, off, parameters);
@@ -458,9 +469,71 @@ class PiliScheme {
               return true;
             }
             return false;
+          case 'cheese':
+            // bilibili://cheese/season/123456
+            String? seasonId = uriDigitRegExp.firstMatch(path)?.group(1);
+            if (seasonId != null) {
+              PageUtils.viewPugv(seasonId: seasonId);
+              return true;
+            }
+            return false;
+          case 'history':
+            Get.toNamed('/history');
+            return true;
+          case 'main':
+            if (path.startsWith('/favorite')) {
+              final tab = uri.queryParameters['tab'];
+              int index = 0;
+              if (tab != null) {
+                try {
+                  index = FavTabType.values.byName(tab).index;
+                } catch (e) {
+                  if (kDebugMode) debugPrint('favorite jump: $e');
+                }
+              }
+              Get.toNamed('/fav', arguments: index);
+              return true;
+            }
+            return false;
+          case 'livearea':
+            Get.to(
+              Scaffold(
+                resizeToAvoidBottomInset: false,
+                appBar: AppBar(title: const Text('直播')),
+                body: const ViewSafeArea(child: LivePage()),
+              ),
+            );
+            return true;
+          case 'rank':
+            Get.to(
+              Scaffold(
+                resizeToAvoidBottomInset: false,
+                appBar: AppBar(title: const Text('排行榜')),
+                body: const ViewSafeArea(child: RankPage()),
+              ),
+            );
+            return true;
+          case 'login':
+            Get.toNamed('/loginPage');
+            return true;
+          case 'music':
+            if (path.startsWith('/playlist/')) {
+              final mediaId = uriDigitRegExp.firstMatch(path)?.group(1);
+              if (mediaId != null) {
+                Get.toNamed(
+                  '/favDetail',
+                  parameters: {
+                    'mediaId': mediaId,
+                    'heroTag': Utils.makeHeroTag(mediaId),
+                  },
+                );
+                return true;
+              }
+            }
+            return false;
           default:
             if (!selfHandle) {
-              if (kDebugMode) debugPrint('$uri');
+              // if (kDebugMode) debugPrint('$uri');
               SmartDialog.showToast('未知路径:$uri，请截图反馈给开发者');
             }
             return false;
@@ -473,12 +546,8 @@ class PiliScheme {
           parameters: parameters,
         );
       default:
-        String? aid = RegExp(r'^av(\d+)', caseSensitive: false)
-            .firstMatch(path)
-            ?.group(1);
-        String? bvid = RegExp(r'^BV[a-z\d]{10}', caseSensitive: false)
-            .firstMatch(path)
-            ?.group(0);
+        String? aid = IdUtils.avRegexExact.matchAsPrefix(path)?.group(1);
+        String? bvid = IdUtils.bvRegexExact.matchAsPrefix(path)?.group(0);
         if (aid != null || bvid != null) {
           videoPush(
             aid != null ? int.parse(aid) : null,
@@ -488,7 +557,7 @@ class PiliScheme {
           return true;
         }
         if (!selfHandle) {
-          if (kDebugMode) debugPrint('$uri');
+          // if (kDebugMode) debugPrint('$uri');
           SmartDialog.showToast('未知路径:$uri，请截图反馈给开发者');
         }
         return false;
@@ -547,19 +616,22 @@ class PiliScheme {
         launchURL();
       }
       return hasMatch;
-    }
-
-    if (host.contains('live.bilibili.com')) {
+    } else if (host.contains('live.bilibili.com')) {
       String? roomId = uriDigitRegExp.firstMatch(path)?.group(1);
       if (roomId != null) {
-        PageUtils.toDupNamed('/liveRoom?roomid=$roomId', off: off);
+        PageUtils.toLiveRoom(int.parse(roomId), off: off);
         return true;
       }
       launchURL();
       return false;
-    }
-
-    if (host.contains('space.bilibili.com')) {
+    } else if (host.contains('space.bilibili.com')) {
+      String? sid =
+          uri.queryParameters['sid'] ??
+          RegExp(r'lists/(\d+)').firstMatch(path)?.group(1);
+      if (sid != null) {
+        SubDetailPage.toSubDetailPage(int.parse(sid));
+        return true;
+      }
       String? mid = uriDigitRegExp.firstMatch(path)?.group(1);
       if (mid != null) {
         PageUtils.toDupNamed('/member?mid=$mid', off: off);
@@ -567,9 +639,7 @@ class PiliScheme {
       }
       launchURL();
       return false;
-    }
-
-    if (host.contains('search.bilibili.com')) {
+    } else if (host.contains('search.bilibili.com')) {
       String? keyword = uri.queryParameters['keyword'];
       if (keyword != null) {
         PageUtils.toDupNamed(
@@ -581,18 +651,32 @@ class PiliScheme {
       }
       launchURL();
       return false;
+    } else if (host.contains('music.bilibili.com')) {
+      // music.bilibili.com/pc/music-detail?music_id=MA***
+      // music.bilibili.com/h5-music-detail?music_id=MA***
+      if (path.contains('music-detail')) {
+        final musicId = uri.queryParameters['music_id'];
+        if (musicId != null && musicId.startsWith('MA')) {
+          PageUtils.toDupNamed(
+            '/musicDetail',
+            parameters: {'musicId': musicId},
+          );
+          return true;
+        }
+        launchURL();
+      }
     }
 
-    List<String> pathSegments = uri.pathSegments;
+    final pathSegments = uri.pathSegments;
     if (pathSegments.isEmpty) {
       launchURL();
       return false;
     }
-    final String? area =
-        pathSegments.first == 'mobile' || pathSegments.first == 'h5'
-            ? pathSegments.getOrNull(1)
-            : pathSegments.first;
-    if (kDebugMode) debugPrint('area: $area');
+    final first = pathSegments.first;
+    final String? area = const ['mobile', 'h5', 'v'].contains(first)
+        ? pathSegments.getOrNull(1)
+        : first;
+    // if (kDebugMode) debugPrint('area: $area');
     switch (area) {
       case 'note' || 'note-app':
         String? id = uri.queryParameters['cvid'];
@@ -617,25 +701,24 @@ class PiliScheme {
         return hasMatch;
       case 'playlist':
         // http://m.bilibili.com/playlist/pl12345678?bvid=BVxxxxxxxx&page_type=4
-        String? mediaId = RegExp(r'/pl(\d+)', caseSensitive: false)
-            .firstMatch(path)
-            ?.group(1);
-        String? bvid = uri.queryParameters['bvid'] ??
-            RegExp(r'/(BV[a-z\d]{10})', caseSensitive: false)
-                .firstMatch(path)
-                ?.group(1);
+        String? mediaId = RegExp(
+          r'/pl(\d+)',
+          caseSensitive: false,
+        ).firstMatch(path)?.group(1);
+        String? bvid =
+            uri.queryParameters['bvid'] ??
+            IdUtils.bvRegex.firstMatch(path)?.group(0);
         if (bvid != null) {
           if (mediaId != null) {
             final int? cid = await SearchHttp.ab2c(bvid: bvid);
             if (cid != null) {
               PageUtils.toVideoPage(
-                'bvid=$bvid&cid=$cid',
-                arguments: {
-                  'heroTag': Utils.makeHeroTag(bvid),
-                  'sourceType': 'playlist',
+                bvid: bvid,
+                cid: cid,
+                extraArguments: {
+                  'sourceType': SourceType.playlist,
                   'favTitle': '播放列表',
                   'mediaId': mediaId,
-                  'mediaType': 3,
                   'desc': true,
                   'isContinuePlaying': true,
                 },
@@ -650,28 +733,27 @@ class PiliScheme {
         return false;
       case 'bangumi':
         // www.bilibili.com/bangumi/play/ep{eid}?start_progress={offset}&thumb_up_dm_id={dmid}
-        if (kDebugMode) debugPrint('番剧');
-        String? id = RegExp(r'(ss|ep)\d+').firstMatch(path)?.group(0);
-        if (id != null) {
-          bool isSeason = id.startsWith('ss');
-          id = id.substring(2);
-          PageUtils.viewPgc(
-            seasonId: isSeason ? id : null,
-            epId: isSeason ? null : id,
-            progress: uri.queryParameters['start_progress'],
-          );
+        // if (kDebugMode) debugPrint('番剧');
+        final queryParameters = uri.queryParameters;
+        bool hasMatch = PageUtils.viewPgcFromUri(
+          path,
+          progress:
+              queryParameters['start_progress'] ??
+              queryParameters['dm_progress'],
+        );
+        if (hasMatch) {
           return true;
         }
         launchURL();
         return false;
       case 'video':
-        if (kDebugMode) debugPrint('投稿');
-        final Map<String, dynamic> map = IdUtils.matchAvorBv(input: path);
-        if (map.isNotEmpty) {
+        // if (kDebugMode) debugPrint('投稿');
+        final res = IdUtils.matchAvorBv(input: path);
+        if (res.isNotEmpty) {
           final queryParameters = uri.queryParameters;
           videoPush(
-            map['AV'],
-            map['BV'],
+            res.av,
+            res.bv,
             off: off,
             progress: queryParameters['dm_progress'],
             part: queryParameters['p'],
@@ -682,9 +764,10 @@ class PiliScheme {
         return false;
       case 'read':
         if (path.contains('readlist')) {
-          String? id = RegExp(r'/rl(\d+)', caseSensitive: false)
-              .firstMatch(path)
-              ?.group(1);
+          String? id = RegExp(
+            r'/rl(\d+)',
+            caseSensitive: false,
+          ).firstMatch(path)?.group(1);
           if (id != null) {
             PageUtils.toDupNamed(
               '/articleList',
@@ -696,9 +779,11 @@ class PiliScheme {
           launchURL();
           return false;
         }
-        if (kDebugMode) debugPrint('专栏');
-        String? id =
-            RegExp(r'cv(\d+)', caseSensitive: false).firstMatch(path)?.group(1);
+        // if (kDebugMode) debugPrint('专栏');
+        String? id = RegExp(
+          r'cv(\d+)',
+          caseSensitive: false,
+        ).firstMatch(path)?.group(1);
         if (id != null) {
           PageUtils.toDupNamed(
             '/articlePage',
@@ -713,7 +798,7 @@ class PiliScheme {
         launchURL();
         return false;
       case 'space':
-        if (kDebugMode) debugPrint('个人空间');
+        // if (kDebugMode) debugPrint('个人空间');
         String? mid = uriDigitRegExp.firstMatch(path)?.group(1);
         if (mid != null) {
           PageUtils.toDupNamed(
@@ -739,7 +824,7 @@ class PiliScheme {
         }
         launchURL();
         return false;
-      case 'topic-detail':
+      case 'topic' || 'topic-detail':
         String? id = uri.queryParameters['topic_id'];
         if (id != null) {
           PageUtils.toDupNamed(
@@ -767,6 +852,7 @@ class PiliScheme {
               'id': commentSecondaryId,
             },
             () => Scaffold(
+              resizeToAvoidBottomInset: false,
               appBar: AppBar(
                 title: const Text('评论详情'),
                 actions: pageType == '1'
@@ -781,9 +867,7 @@ class PiliScheme {
                       ]
                     : null,
               ),
-              body: SafeArea(
-                top: false,
-                bottom: false,
+              body: ViewSafeArea(
                 child: VideoReplyReplyPanel(
                   enableSlide: false,
                   oid: int.parse(oid),
@@ -802,7 +886,7 @@ class PiliScheme {
         }
         launchURL();
         return false;
-      case 'match' || 'v':
+      case 'match' || 'game':
         if (path.contains('match/data/detail') ||
             path.contains('match/singledata')) {
           String? cid = uriDigitRegExp.firstMatch(path)?.group(1);
@@ -817,12 +901,20 @@ class PiliScheme {
         }
         launchURL();
         return false;
+      case 'cheese':
+        // https://www.bilibili.com/cheese/play/ss123456
+        bool hasMatch = PageUtils.viewPgcFromUri(path, isPgc: false);
+        if (hasMatch) {
+          return true;
+        }
+        launchURL();
+        return false;
       default:
-        Map map = IdUtils.matchAvorBv(input: area?.split('?').first);
-        if (map.isNotEmpty) {
+        final res = IdUtils.matchAvorBv(input: area?.split('?').first);
+        if (res.isNotEmpty) {
           videoPush(
-            map['AV'],
-            map['BV'],
+            res.av,
+            res.bv,
             off: off,
           );
           return true;
@@ -886,14 +978,11 @@ class PiliScheme {
       }
       if (cid != null) {
         PageUtils.toVideoPage(
-          'bvid=$bvid&cid=$cid',
-          arguments: {
-            'pic': null,
-            'heroTag': Utils.makeHeroTag(aid),
-            if (progress != null) 'progress': int.tryParse(progress),
-          },
+          aid: aid,
+          bvid: bvid,
+          cid: cid,
+          progress: progress == null ? null : int.parse(progress),
           off: off,
-          preventDuplicates: false,
         );
       }
     } catch (e) {

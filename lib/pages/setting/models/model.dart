@@ -8,70 +8,66 @@ import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-extension SettingsModelExt on SettingsModel {
-  Widget get widget => switch (settingsType) {
-        SettingsType.normal => NormalItem(
-            title: title,
-            getTitle: getTitle,
-            subtitle: subtitle,
-            getSubtitle: getSubtitle,
-            setKey: setKey,
-            defaultVal: defaultVal,
-            onChanged: onChanged,
-            needReboot: needReboot,
-            leading: leading,
-            getTrailing: getTrailing,
-            onTap: onTap,
-            contentPadding: contentPadding,
-            titleStyle: titleStyle,
-          ),
-        SettingsType.sw1tch => SetSwitchItem(
-            title: title,
-            subtitle: subtitle,
-            setKey: setKey,
-            defaultVal: defaultVal,
-            onChanged: onChanged,
-            needReboot: needReboot,
-            leading: leading,
-            onTap: onTap,
-            contentPadding: contentPadding,
-            titleStyle: titleStyle,
-          ),
-      };
-}
-
+@immutable
 class SettingsModel {
   final SettingsType settingsType;
   final String? title;
-  final Function? getTitle;
+  final StringGetter? getTitle;
   final String? subtitle;
-  final Function? getSubtitle;
+  final StringGetter? getSubtitle;
   final String? setKey;
-  final bool? defaultVal;
+  final bool defaultVal;
   final ValueChanged<bool>? onChanged;
-  final bool? needReboot;
+  final bool needReboot;
   final Widget? leading;
-  final Function? getTrailing;
+  final Widget Function()? getTrailing;
   final Function? onTap;
   final EdgeInsetsGeometry? contentPadding;
   final TextStyle? titleStyle;
 
-  SettingsModel({
+  const SettingsModel({
     required this.settingsType,
     this.title,
     this.getTitle,
     this.subtitle,
     this.getSubtitle,
     this.setKey,
-    this.defaultVal,
+    this.defaultVal = false,
     this.onChanged,
-    this.needReboot,
+    this.needReboot = false,
     this.leading,
     this.getTrailing,
     this.onTap,
     this.contentPadding,
     this.titleStyle,
-  });
+  }) : assert(title != null || getTitle != null);
+
+  Widget get widget => switch (settingsType) {
+    SettingsType.normal => NormalItem(
+      title: title,
+      getTitle: getTitle,
+      subtitle: subtitle,
+      getSubtitle: getSubtitle,
+      setKey: setKey,
+      leading: leading,
+      getTrailing: getTrailing,
+      onTap: onTap,
+      contentPadding: contentPadding,
+      titleStyle: titleStyle,
+    ),
+    SettingsType.sw1tch => SetSwitchItem(
+      title: title,
+      subtitle: subtitle,
+      setKey: setKey,
+      defaultVal: defaultVal,
+      onChanged: onChanged,
+      needReboot: needReboot,
+      leading: leading,
+      onTap: onTap,
+      contentPadding: contentPadding,
+      titleStyle: titleStyle,
+    ),
+  };
 }
 
 SettingsModel getBanwordModel({
@@ -104,7 +100,7 @@ SettingsModel getBanwordModel({
                   minLines: 1,
                   maxLines: 4,
                   onChanged: (value) => banWord = value,
-                )
+                ),
               ],
             ),
             actions: [
@@ -112,8 +108,9 @@ SettingsModel getBanwordModel({
                 onPressed: Get.back,
                 child: Text(
                   '取消',
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.outline),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ),
               TextButton(
@@ -154,22 +151,26 @@ SettingsModel getVideoFilterSelectModel({
     subtitle: subtitle,
     getSubtitle: subtitle == null
         ? () => isFilter
-            ? '过滤掉$title小于「$value${suffix ?? ""}」的视频'
-            : '当前$title:「$value${suffix ?? ""}」'
+              ? '过滤掉$title小于「$value${suffix ?? ""}」的视频'
+              : '当前$title:「$value${suffix ?? ""}」'
         : null,
     onTap: (setState) async {
       var result = await showDialog<int>(
         context: context,
         builder: (context) {
           return SelectDialog<int>(
-              title: '选择$title${isFilter ? '（0即不过滤）' : ''}',
-              value: value,
-              values: (values
-                    ..addIf(!values.contains(value), value)
-                    ..sort())
-                  .map((e) => (e, suffix == null ? e.toString() : '$e $suffix'))
-                  .toList()
-                ..add((-1, '自定义')));
+            title: '选择$title${isFilter ? '（0即不过滤）' : ''}',
+            value: value,
+            values:
+                (values
+                      ..addIf(!values.contains(value), value)
+                      ..sort())
+                    .map(
+                      (e) => (e, suffix == null ? e.toString() : '$e $suffix'),
+                    )
+                    .toList()
+                  ..add((-1, '自定义')),
+          );
         },
       );
       if (result != null) {
@@ -184,9 +185,7 @@ SettingsModel getVideoFilterSelectModel({
                   autofocus: true,
                   onChanged: (value) => valueStr = value,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'\d+')),
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(suffixText: suffix),
                 ),
                 actions: [
@@ -195,7 +194,8 @@ SettingsModel getVideoFilterSelectModel({
                     child: Text(
                       '取消',
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.outline),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                   ),
                   TextButton(

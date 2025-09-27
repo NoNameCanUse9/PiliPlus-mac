@@ -7,11 +7,12 @@ import 'package:PiliPlus/models/common/live_dm_silent_type.dart';
 import 'package:PiliPlus/models_new/live/live_dm_block/shield_user_list.dart';
 import 'package:PiliPlus/pages/live_dm_block/controller.dart';
 import 'package:PiliPlus/pages/search/widgets/search_text.dart';
+import 'package:PiliPlus/utils/extension.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide ContextExtensionss;
 
 class LiveDmBlockPage extends StatefulWidget {
   const LiveDmBlockPage({super.key});
@@ -21,18 +22,24 @@ class LiveDmBlockPage extends StatefulWidget {
 }
 
 class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
-  final _controller =
-      Get.put(LiveDmBlockController(), tag: Utils.generateRandomString(8));
+  final _controller = Get.put(
+    LiveDmBlockController(),
+    tag: Utils.generateRandomString(8),
+  );
   late bool isPortrait;
+  late EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
-    isPortrait = context.orientation == Orientation.portrait;
+    isPortrait = MediaQuery.sizeOf(context).isPortrait;
+    padding = MediaQuery.viewPaddingOf(context);
     final theme = Theme.of(context);
-
     Widget tabBar = TabBar(
       controller: _controller.tabController,
-      tabs: const [Tab(text: '关键词'), Tab(text: '用户')],
+      tabs: const [
+        Tab(text: '关键词'),
+        Tab(text: '用户'),
+      ],
     );
 
     Widget view = tabBarView(
@@ -51,7 +58,10 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
 
     Widget title = Padding(
       padding: EdgeInsets.only(
-          top: isPortrait ? 18 : 0, left: isPortrait ? 0 : 12, bottom: 12),
+        top: isPortrait ? 18 : 0,
+        left: isPortrait ? 0 : 12,
+        bottom: 12,
+      ),
       child: const Text(
         '关键词屏蔽',
         style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
@@ -75,11 +85,9 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: const Text('弹幕屏蔽'),
-      ),
-      body: SafeArea(
-        bottom: false,
+      appBar: AppBar(title: const Text('弹幕屏蔽')),
+      body: Padding(
+        padding: EdgeInsets.only(left: padding.left, right: padding.right),
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -90,8 +98,10 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
                       return [
                         SliverToBoxAdapter(child: left),
                         SliverOverlapAbsorber(
-                          handle: ExtendedNestedScrollView
-                              .sliverOverlapAbsorberHandleFor(context),
+                          handle:
+                              ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
+                                context,
+                              ),
                           sliver: SliverPersistentHeader(
                             pinned: true,
                             delegate: CustomSliverPersistentHeaderDelegate(
@@ -107,9 +117,10 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
                       builder: (context, _) {
                         return Padding(
                           padding: EdgeInsets.only(
-                            top: ExtendedNestedScrollView
-                                        .sliverOverlapAbsorberHandleFor(context)
-                                    .layoutExtent ??
+                            top:
+                                ExtendedNestedScrollView.sliverOverlapAbsorberHandleFor(
+                                  context,
+                                ).layoutExtent ??
                                 0,
                           ),
                           child: view,
@@ -129,9 +140,9 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (!isPortrait) title,
+                            title,
                             tabBar,
-                            Expanded(child: view)
+                            Expanded(child: view),
                           ],
                         ),
                       ),
@@ -139,7 +150,7 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
                   ),
             Positioned(
               right: 16,
-              bottom: 16 + MediaQuery.paddingOf(context).bottom,
+              bottom: 16 + padding.bottom,
               child: FloatingActionButton(
                 tooltip: '添加',
                 onPressed: _addShieldKeyword,
@@ -161,7 +172,7 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         top: 12,
         left: 12,
         right: 12,
-        bottom: MediaQuery.paddingOf(context).bottom + 80,
+        bottom: padding.bottom + 100,
       ),
       child: Wrap(
         spacing: 12,
@@ -187,23 +198,27 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     return [
       const SizedBox(height: 6),
       Obx(
-        () => Row(
-          spacing: 10,
-          children: [
-            Text('屏蔽${_controller.isEnable.value ? '已' : '未'}开启'),
-            Transform.scale(
-              scale: .8,
-              child: Switch(
-                value: _controller.isEnable.value,
-                onChanged: _controller.setEnable,
+        () {
+          final isEnable = _controller.isEnable.value;
+          return Row(
+            spacing: 10,
+            children: [
+              Text('屏蔽${isEnable ? '已' : '未'}开启'),
+              Transform.scale(
+                scale: .8,
+                child: Switch(
+                  value: isEnable,
+                  onChanged: _controller.setEnable,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
       const SizedBox(height: 6),
       Obx(
         () {
+          final level = _controller.level.value;
           return Row(
             children: [
               const Text('用户等级'),
@@ -214,23 +229,22 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
                 year2023: true,
                 inactiveColor: theme.colorScheme.onInverseSurface,
                 padding: const EdgeInsets.only(left: 20, right: 25),
-                value: _controller.level.value.toDouble(),
-                onChangeStart: (value) =>
-                    _controller.oldLevel = _controller.level.value,
+                value: level.toDouble(),
+                onChangeStart: (value) => _controller.oldLevel = level,
                 onChanged: (value) =>
                     _controller.level.value = value.round().clamp(0, 60),
                 onChangeEnd: (value) {
-                  if (_controller.oldLevel != _controller.level.value) {
+                  if (_controller.oldLevel != level) {
                     _controller.setSilent(
                       LiveDmSilentType.level,
-                      _controller.level.value,
+                      level,
                       onError: () =>
                           _controller.level.value = _controller.oldLevel ?? 0,
                     );
                   }
                 },
               ),
-              Text('${_controller.level.value} 以下')
+              Text('$level 以下'),
             ],
           );
         },
@@ -270,10 +284,16 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
     ];
   }
 
-  Widget _headerBtn(ThemeData theme, bool isEnable, IconData icon, String name,
-      VoidCallback onTap) {
-    final color =
-        isEnable ? theme.colorScheme.primary : theme.colorScheme.outline;
+  Widget _headerBtn(
+    ThemeData theme,
+    bool isEnable,
+    IconData icon,
+    String name,
+    VoidCallback onTap,
+  ) {
+    final color = isEnable
+        ? theme.colorScheme.primary
+        : theme.colorScheme.outline;
 
     Widget top = Container(
       width: 42,
@@ -282,7 +302,8 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
       decoration: isEnable
           ? BoxDecoration(
               border: Border.all(color: color),
-              borderRadius: const BorderRadius.all(Radius.circular(4)))
+              borderRadius: const BorderRadius.all(Radius.circular(4)),
+            )
           : null,
       child: Icon(icon, color: color),
     );
@@ -344,7 +365,7 @@ class _LiveDmBlockPageState extends State<LiveDmBlockPage> {
         keyboardType: isKeyword ? null : TextInputType.number,
         inputFormatters: isKeyword
             ? null
-            : [FilteringTextInputFormatter.allow(RegExp(r'\d+'))],
+            : [FilteringTextInputFormatter.digitsOnly],
       ),
       onConfirm: () {
         if (value.isNotEmpty) {

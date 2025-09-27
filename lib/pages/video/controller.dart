@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:ui';
 
 import 'package:PiliPlus/common/widgets/pair.dart';
@@ -11,15 +10,18 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/main.dart';
-import 'package:PiliPlus/models/common/search_type.dart';
+import 'package:PiliPlus/models/common/account_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/action_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/post_segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_model.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/skip_type.dart';
 import 'package:PiliPlus/models/common/video/audio_quality.dart';
+import 'package:PiliPlus/models/common/video/source_type.dart';
+import 'package:PiliPlus/models/common/video/subtitle_pref_type.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/models/common/video/video_type.dart';
 import 'package:PiliPlus/models/video/play/url.dart';
 import 'package:PiliPlus/models_new/media_list/data.dart';
 import 'package:PiliPlus/models_new/media_list/media_list.dart';
@@ -38,22 +40,23 @@ import 'package:PiliPlus/pages/video/send_danmaku/view.dart';
 import 'package:PiliPlus/pages/video/widgets/header_control.dart';
 import 'package:PiliPlus/plugin/pl_player/controller.dart';
 import 'package:PiliPlus/plugin/pl_player/models/data_source.dart';
+import 'package:PiliPlus/plugin/pl_player/models/heart_beat_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
-import 'package:PiliPlus/utils/duration_util.dart';
-import 'package:PiliPlus/utils/id_utils.dart';
+import 'package:PiliPlus/utils/accounts.dart';
+import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:PiliPlus/utils/video_utils.dart';
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dio/dio.dart' show Options;
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_volume_controller/flutter_volume_controller.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide ContextExtensionss;
 import 'package:get/get_navigation/src/dialog/dialog_route.dart';
 import 'package:hive/hive.dart';
 import 'package:material_design_icons_flutter/material_design_icons_flutter.dart';
@@ -62,34 +65,43 @@ import 'package:media_kit/media_kit.dart';
 class VideoDetailController extends GetxController
     with GetTickerProviderStateMixin {
   /// 路由传参
-  String bvid = Get.parameters['bvid']!;
-  RxInt cid = int.parse(Get.parameters['cid']!).obs;
-  RxInt danmakuCid = 0.obs;
-  String heroTag = Get.arguments['heroTag'];
-  // 视频详情
-  RxMap videoItem = {}.obs;
+  late final Map args;
+  late String bvid;
+  late int aid;
+  late final RxInt cid;
+  int? epId;
+  int? seasonId;
+  int? pgcType;
+  late final String heroTag;
+  late final RxString cover;
+
   // 视频类型 默认投稿视频
-  SearchType videoType = Get.arguments['videoType'] ?? SearchType.video;
+  late final VideoType videoType;
+  late final isUgc = videoType == VideoType.ugc;
+  VideoType? _actualVideoType;
+
+  // 页面来源 稍后再看 收藏夹
+  late bool isPlayAll;
+  late SourceType sourceType;
+  late bool _mediaDesc = false;
+  late final RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
+  late String watchLaterTitle;
 
   /// tabs相关配置
   late TabController tabCtr;
 
   // 请求返回的视频信息
   late PlayUrlModel data;
-  Rx<LoadingState> videoState = LoadingState.loading().obs;
+  final Rx<LoadingState> videoState = LoadingState.loading().obs;
 
   /// 播放器配置 画质 音质 解码格式
-  late VideoQuality currentVideoQa;
+  late Rx<VideoQuality> currentVideoQa;
   AudioQuality? currentAudioQa;
   late VideoDecodeFormatType currentDecodeFormats;
+
   // 是否开始自动播放 存在多p的情况下，第二p需要为true
-  RxBool autoPlay = true.obs;
-  // 封面图的展示
-  RxBool isShowCover = true.obs;
+  final RxBool autoPlay = true.obs;
 
-  RxInt oid = 0.obs;
-
-  final scaffoldKey = GlobalKey<ScaffoldState>();
   final childKey = GlobalKey<ScaffoldState>();
 
   PlPlayerController plPlayerController = PlPlayerController.getInstance()
@@ -101,6 +113,7 @@ class VideoDetailController extends GetxController
   String? audioUrl;
   Duration? defaultST;
   Duration? playedTime;
+
   // 亮度
   double? brightness;
 
@@ -111,38 +124,39 @@ class VideoDetailController extends GetxController
   late String cacheDecode;
   late String cacheSecondDecode;
 
-  bool get showReply => videoType == SearchType.video
+  bool get showReply => isUgc
       ? plPlayerController.showVideoReply
       : plPlayerController.showBangumiReply;
 
   int? seasonCid;
-  late RxInt seasonIndex = 0.obs;
+  late final RxInt seasonIndex = 0.obs;
 
   PlayerStatus? playerStatus;
   StreamSubscription<Duration>? positionSubscription;
 
   late final scrollKey = GlobalKey<ExtendedNestedScrollViewState>();
-  late RxString direction = 'horizontal'.obs;
+  late final RxBool isVertical = false.obs;
   late final RxDouble scrollRatio = 0.0.obs;
   late final ScrollController scrollCtr = ScrollController()
     ..addListener(scrollListener);
   late bool isExpanding = false;
   late bool isCollapsing = false;
-  late final AnimationController animationController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 200),
-  );
-  late final double minVideoHeight = Get.mediaQuery.size.shortestSide * 9 / 16;
-  late final double maxVideoHeight = max(
-    Get.mediaQuery.size.longestSide * 0.65,
-    Get.mediaQuery.size.shortestSide,
-  );
-  late double videoHeight = minVideoHeight;
+  AnimationController? animController;
+
+  AnimationController get animationController =>
+      animController ??= AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 200),
+      );
+  late double minVideoHeight;
+  late double maxVideoHeight;
+  late double videoHeight;
 
   void animToTop() {
-    if (scrollKey.currentState?.outerController.hasClients == true) {
-      scrollKey.currentState!.outerController.animateTo(
-        scrollKey.currentState!.outerController.offset,
+    final outerController = scrollKey.currentState!.outerController;
+    if (outerController.hasClients) {
+      outerController.animateTo(
+        outerController.offset,
         duration: const Duration(milliseconds: 500),
         curve: Curves.easeInOut,
       );
@@ -150,31 +164,30 @@ class VideoDetailController extends GetxController
   }
 
   void setVideoHeight() {
-    String direction = firstVideo.width != null && firstVideo.height != null
-        ? firstVideo.width! > firstVideo.height!
-            ? 'horizontal'
-            : 'vertical'
-        : 'horizontal';
+    final isVertical = firstVideo.width != null && firstVideo.height != null
+        ? firstVideo.width! < firstVideo.height!
+        : false;
     if (!scrollCtr.hasClients) {
-      videoHeight = direction == 'vertical' ? maxVideoHeight : minVideoHeight;
-      this.direction.value = direction;
+      videoHeight = isVertical ? maxVideoHeight : minVideoHeight;
+      this.isVertical.value = isVertical;
       return;
     }
-    if (this.direction.value != direction) {
-      this.direction.value = direction;
-      double videoHeight =
-          direction == 'vertical' ? maxVideoHeight : minVideoHeight;
+    if (this.isVertical.value != isVertical) {
+      this.isVertical.value = isVertical;
+      double videoHeight = isVertical ? maxVideoHeight : minVideoHeight;
       if (this.videoHeight != videoHeight) {
         if (videoHeight > this.videoHeight) {
           // current minVideoHeight
           isExpanding = true;
           animationController.forward(
-              from: (minVideoHeight - scrollCtr.offset) / maxVideoHeight);
+            from: (minVideoHeight - scrollCtr.offset) / maxVideoHeight,
+          );
           this.videoHeight = maxVideoHeight;
         } else {
           // current maxVideoHeight
-          final currentHeight =
-              (maxVideoHeight - scrollCtr.offset).toPrecision(2);
+          final currentHeight = (maxVideoHeight - scrollCtr.offset).toPrecision(
+            2,
+          );
           double minVideoHeightPrecise = minVideoHeight.toPrecision(2);
           if (currentHeight == minVideoHeightPrecise) {
             isExpanding = true;
@@ -189,7 +202,8 @@ class VideoDetailController extends GetxController
             // collapse
             isCollapsing = true;
             animationController.forward(
-                from: scrollCtr.offset / (maxVideoHeight - minVideoHeight));
+              from: scrollCtr.offset / (maxVideoHeight - minVideoHeight),
+            );
             this.videoHeight = minVideoHeight;
           }
         }
@@ -232,126 +246,105 @@ class VideoDetailController extends GetxController
     imageStatus = false;
   }
 
-// 页面来源 稍后再看 收藏夹
-  String sourceType = 'normal';
-  late bool _mediaDesc = false;
-  late RxList<MediaListItemModel> mediaList = <MediaListItemModel>[].obs;
-  late String watchLaterTitle = '';
-  bool get isPlayAll =>
-      const ['watchLater', 'fav', 'archive', 'playlist'].contains(sourceType);
-  int get _mediaType => switch (sourceType) {
-        'archive' => 1,
-        'watchLater' => 2,
-        'fav' || 'playlist' => 3,
-        _ => -1,
-      };
-
-  late dynamic epId = Get.parameters['epId'];
-  late dynamic seasonId = Get.parameters['seasonId'];
-  late dynamic subType = Get.parameters['type'];
+  final isLoginVideo = Accounts.get(AccountType.video).isLogin;
 
   @override
   void onInit() {
     super.onInit();
-    var keys = Get.arguments.keys.toList();
-    if (keys.isNotEmpty) {
-      if (keys.contains('videoItem')) {
-        var args = Get.arguments['videoItem'];
-        try {
-          if (args.pic != null && args.pic != '') {
-            videoItem['pic'] = args.pic;
-          } else if (args.cover != null && args.cover != '') {
-            videoItem['pic'] = args.cover;
-          }
-        } catch (_) {}
+    args = Get.arguments;
+    videoType = args['videoType'];
+    if (videoType == VideoType.pgc) {
+      if (!isLoginVideo) {
+        _actualVideoType = VideoType.ugc;
       }
-      if (keys.contains('pic')) {
-        videoItem['pic'] = Get.arguments['pic'];
-      }
+    } else if (args['pgcApi'] == true) {
+      _actualVideoType = VideoType.pgc;
     }
 
-    sourceType = Get.arguments['sourceType'] ?? 'normal';
+    bvid = args['bvid'];
+    aid = args['aid'];
+    cid = RxInt(args['cid']);
+    epId = args['epId'];
+    seasonId = args['seasonId'];
+    pgcType = args['pgcType'];
+    heroTag = args['heroTag'];
+    cover = RxString(args['cover'] ?? '');
 
-    if (sourceType != 'normal') {
-      watchLaterTitle = Get.arguments['favTitle'];
-      _mediaDesc = Get.arguments['desc'];
+    sourceType = args['sourceType'] ?? SourceType.normal;
+    isPlayAll = sourceType != SourceType.normal;
+    if (isPlayAll) {
+      watchLaterTitle = args['favTitle'];
+      _mediaDesc = args['desc'];
       getMediaList();
     }
 
-    bool defaultShowComment = Pref.defaultShowComment;
     tabCtr = TabController(
-        length: 2, vsync: this, initialIndex: defaultShowComment ? 1 : 0);
+      length: 2,
+      vsync: this,
+      initialIndex: Pref.defaultShowComment ? 1 : 0,
+    );
+
     autoPlay.value = Pref.autoPlayEnable;
-    if (autoPlay.value) isShowCover.value = false;
-    danmakuCid.value = cid.value;
 
     // 预设的解码格式
     cacheDecode = Pref.defaultDecode;
     cacheSecondDecode = Pref.secondDecode;
-    oid.value = IdUtils.bv2av(Get.parameters['bvid']!);
   }
 
   Future<void> getMediaList({
     bool isReverse = false,
     bool isLoadPrevious = false,
   }) async {
-    if (!isReverse &&
-        Get.arguments['count'] != null &&
-        mediaList.length >= Get.arguments['count']) {
+    final count = args['count'];
+    if (!isReverse && count != null && mediaList.length >= count) {
       return;
     }
     var res = await UserHttp.getMediaList(
-      type: Get.arguments['mediaType'] ?? _mediaType,
-      bizId: Get.arguments['mediaId'] ?? -1,
+      type: args['mediaType'] ?? sourceType.mediaType,
+      bizId: args['mediaId'] ?? -1,
       ps: 20,
       direction: isLoadPrevious ? true : false,
       oid: isReverse
           ? null
           : mediaList.isEmpty
-              ? Get.arguments['isContinuePlaying'] == true
-                  ? Get.arguments['oid']
-                  : null
-              : isLoadPrevious
-                  ? mediaList.first.aid
-                  : mediaList.last.aid,
+          ? args['isContinuePlaying'] == true
+                ? args['oid']
+                : null
+          : isLoadPrevious
+          ? mediaList.first.aid
+          : mediaList.last.aid,
       otype: isReverse
           ? null
           : mediaList.isEmpty
-              ? null
-              : isLoadPrevious
-                  ? mediaList.first.type
-                  : mediaList.last.type,
+          ? null
+          : isLoadPrevious
+          ? mediaList.first.type
+          : mediaList.last.type,
       desc: _mediaDesc,
-      sortField: Get.arguments['sortField'] ?? 1,
-      withCurrent:
-          mediaList.isEmpty && Get.arguments['isContinuePlaying'] == true
-              ? true
-              : false,
+      sortField: args['sortField'] ?? 1,
+      withCurrent: mediaList.isEmpty && args['isContinuePlaying'] == true
+          ? true
+          : false,
     );
     if (res['status']) {
       MediaListData data = res['data'];
-      if (data.mediaList?.isNotEmpty == true) {
+      if (data.mediaList.isNotEmpty) {
         if (isReverse) {
-          mediaList.value = data.mediaList!;
-          try {
-            for (var item in mediaList) {
-              if (item.cid != null) {
-                Get.find<VideoIntroController>(tag: heroTag)
-                    .changeSeasonOrbangu(
-                  null,
-                  item.bvid,
-                  item.cid,
-                  item.aid,
-                  item.cover,
-                );
-                break;
-              }
+          mediaList.value = data.mediaList;
+          for (var item in mediaList) {
+            if (item.cid != null) {
+              try {
+                Get.find<UgcIntroController>(
+                  tag: heroTag,
+                ).onChangeEpisode(item);
+              } catch (_) {}
+              break;
             }
-          } catch (_) {}
+          }
         } else if (isLoadPrevious) {
-          mediaList.insertAll(0, data.mediaList!);
+          mediaList.insertAll(0, data.mediaList);
         } else {
-          mediaList.addAll(data.mediaList!);
+          mediaList.addAll(data.mediaList);
         }
       }
     } else {
@@ -363,51 +356,51 @@ class VideoDetailController extends GetxController
   void showMediaListPanel(BuildContext context) {
     if (mediaList.isNotEmpty) {
       Widget panel() => MediaListPanel(
-            mediaList: mediaList,
-            changeMediaList: (bvid, cid, aid, cover) {
-              try {
-                Get.find<VideoIntroController>(tag: heroTag)
-                    .changeSeasonOrbangu(null, bvid, cid, aid, cover);
-              } catch (_) {}
-            },
-            panelTitle: watchLaterTitle,
-            getBvId: () => bvid,
-            count: Get.arguments['count'],
-            loadMoreMedia: getMediaList,
-            desc: _mediaDesc,
-            onReverse: () {
-              _mediaDesc = !_mediaDesc;
-              getMediaList(isReverse: true);
-            },
-            loadPrevious: Get.arguments['isContinuePlaying'] == true
-                ? () => getMediaList(isLoadPrevious: true)
-                : null,
-            onDelete: sourceType == 'watchLater' ||
-                    (sourceType == 'fav' && Get.arguments?['isOwner'] == true)
-                ? (item, index) async {
-                    if (sourceType == 'watchLater') {
-                      var res = await UserHttp.toViewDel(
-                        aids: [item.aid],
-                      );
-                      if (res['status']) {
-                        mediaList.removeAt(index);
-                      }
-                      SmartDialog.showToast(res['msg']);
-                    } else {
-                      var res = await FavHttp.delFav(
-                        ids: ['${item.aid}:${item.type}'],
-                        delIds: '${Get.arguments?['mediaId']}',
-                      );
-                      if (res['status']) {
-                        mediaList.removeAt(index);
-                        SmartDialog.showToast('取消收藏');
-                      } else {
-                        SmartDialog.showToast(res['msg']);
-                      }
-                    }
+        mediaList: mediaList,
+        onChangeEpisode: (episode) {
+          try {
+            Get.find<UgcIntroController>(tag: heroTag).onChangeEpisode(episode);
+          } catch (_) {}
+        },
+        panelTitle: watchLaterTitle,
+        bvid: bvid,
+        count: args['count'],
+        loadMoreMedia: getMediaList,
+        desc: _mediaDesc,
+        onReverse: () {
+          _mediaDesc = !_mediaDesc;
+          getMediaList(isReverse: true);
+        },
+        loadPrevious: args['isContinuePlaying'] == true
+            ? () => getMediaList(isLoadPrevious: true)
+            : null,
+        onDelete:
+            sourceType == SourceType.watchLater ||
+                (sourceType == SourceType.fav && args['isOwner'] == true)
+            ? (item, index) async {
+                if (sourceType == SourceType.watchLater) {
+                  var res = await UserHttp.toViewDel(
+                    aids: item.aid.toString(),
+                  );
+                  if (res['status']) {
+                    mediaList.removeAt(index);
                   }
-                : null,
-          );
+                  SmartDialog.showToast(res['msg']);
+                } else {
+                  var res = await FavHttp.favVideo(
+                    resources: '${item.aid}:${item.type}',
+                    delIds: '${args['mediaId']}',
+                  );
+                  if (res['status']) {
+                    mediaList.removeAt(index);
+                    SmartDialog.showToast('取消收藏');
+                  } else {
+                    SmartDialog.showToast(res['msg']);
+                  }
+                }
+              }
+            : null,
+      );
       if (plPlayerController.isFullScreen.value || showVideoSheet) {
         PageUtils.showVideoBottomSheet(
           context,
@@ -422,6 +415,7 @@ class VideoDetailController extends GetxController
       } else {
         childKey.currentState?.showBottomSheet(
           backgroundColor: Colors.transparent,
+          constraints: const BoxConstraints(),
           (context) => panel(),
         );
       }
@@ -430,18 +424,22 @@ class VideoDetailController extends GetxController
     }
   }
 
+  bool isPortrait = true;
+
   bool get horizontalScreen => plPlayerController.horizontalScreen;
+
   bool get showVideoSheet =>
-      !horizontalScreen && Get.context!.orientation == Orientation.landscape;
+      (!horizontalScreen && !isPortrait) || plPlayerController.isDesktopPip;
 
   int? _lastPos;
-  List<PostSegmentModel>? postList;
-  RxList<SegmentModel> segmentList = <SegmentModel>[].obs;
-  List<Segment> viewPointList = <Segment>[];
-  List<Segment>? segmentProgressList;
+  late final List<PostSegmentModel> postList = [];
+  late final List<SegmentModel> segmentList = <SegmentModel>[];
+  late final RxList<Segment> segmentProgressList = <Segment>[].obs;
+
   Color _getColor(SegmentType segment) =>
       plPlayerController.blockColor[segment.index];
   late RxString videoLabel = ''.obs;
+
   String get blockServer => plPlayerController.blockServer;
 
   Timer? skipTimer;
@@ -449,16 +447,18 @@ class VideoDetailController extends GetxController
   late final List listData = [];
 
   void _vote(String uuid, int type) {
-    Request().post(
-      '$blockServer/api/voteOnSponsorTime',
-      queryParameters: {
-        'UUID': uuid,
-        'userID': Pref.blockUserID,
-        'type': type,
-      },
-    ).then((res) {
-      SmartDialog.showToast(res.statusCode == 200 ? '投票成功' : '投票失败');
-    });
+    Request()
+        .post(
+          '$blockServer/api/voteOnSponsorTime',
+          queryParameters: {
+            'UUID': uuid,
+            'userID': Pref.blockUserID,
+            'type': type,
+          },
+        )
+        .then((res) {
+          SmartDialog.showToast(res.statusCode == 200 ? '投票成功' : '投票失败');
+        });
   }
 
   void _showCategoryDialog(BuildContext context, SegmentModel segment) {
@@ -471,45 +471,50 @@ class VideoDetailController extends GetxController
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: SegmentType.values
-                .map((item) => ListTile(
-                      dense: true,
-                      onTap: () {
-                        Get.back();
-                        Request().post(
-                          '$blockServer/api/voteOnSponsorTime',
-                          queryParameters: {
-                            'UUID': segment.UUID,
-                            'userID': Pref.blockUserID,
-                            'category': item.name,
-                          },
-                        ).then((res) {
-                          SmartDialog.showToast(
-                              '类别更改${res.statusCode == 200 ? '成功' : '失败'}');
-                        });
-                      },
-                      title: Text.rich(
-                        TextSpan(
-                          children: [
-                            WidgetSpan(
-                              alignment: PlaceholderAlignment.middle,
-                              child: Container(
-                                height: 10,
-                                width: 10,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _getColor(item),
-                                ),
+                .map(
+                  (item) => ListTile(
+                    dense: true,
+                    onTap: () {
+                      Get.back();
+                      Request()
+                          .post(
+                            '$blockServer/api/voteOnSponsorTime',
+                            queryParameters: {
+                              'UUID': segment.UUID,
+                              'userID': Pref.blockUserID,
+                              'category': item.name,
+                            },
+                          )
+                          .then((res) {
+                            SmartDialog.showToast(
+                              '类别更改${res.statusCode == 200 ? '成功' : '失败'}',
+                            );
+                          });
+                    },
+                    title: Text.rich(
+                      TextSpan(
+                        children: [
+                          WidgetSpan(
+                            alignment: PlaceholderAlignment.middle,
+                            child: Container(
+                              height: 10,
+                              width: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _getColor(item),
                               ),
-                              style: const TextStyle(fontSize: 14, height: 1),
                             ),
-                            TextSpan(
-                              text: ' ${item.title}',
-                              style: const TextStyle(fontSize: 14, height: 1),
-                            ),
-                          ],
-                        ),
+                            style: const TextStyle(fontSize: 14, height: 1),
+                          ),
+                          TextSpan(
+                            text: ' ${item.title}',
+                            style: const TextStyle(fontSize: 14, height: 1),
+                          ),
+                        ],
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),
@@ -608,7 +613,7 @@ class VideoDetailController extends GetxController
                     ),
                     contentPadding: const EdgeInsets.only(left: 16, right: 8),
                     subtitle: Text(
-                      '${DurationUtil.formatDuration(item.segment.first / 1000)} 至 ${DurationUtil.formatDuration(item.segment.second / 1000)}',
+                      '${DurationUtils.formatDuration(item.segment.first / 1000)} 至 ${DurationUtils.formatDuration(item.segment.second / 1000)}',
                       style: const TextStyle(fontSize: 13),
                     ),
                     trailing: Row(
@@ -642,10 +647,9 @@ class VideoDetailController extends GetxController
                                     ? Icons.my_location
                                     : MdiIcons.debugStepOver,
                                 size: 18,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withValues(alpha: 0.7),
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withValues(alpha: 0.7),
                               ),
                             ),
                           )
@@ -675,13 +679,14 @@ class VideoDetailController extends GetxController
     positionSubscription?.cancel();
     videoLabel.value = '';
     segmentList.clear();
-    segmentProgressList = null;
+    segmentProgressList.clear();
     final result = await Request().get(
       '$blockServer/api/skipSegments',
       queryParameters: {
         'videoID': bvid,
         'cid': cid.value,
       },
+      options: Options(validateStatus: (status) => true),
     );
     if (result.statusCode == 200) {
       if (result.data case List list) {
@@ -695,76 +700,92 @@ class VideoDetailController extends GetxController
       try {
         final duration = list.first.videoDuration ?? data.timeLength!;
         // segmentList
-        segmentList.addAll(list
-            .where((item) =>
-                plPlayerController.enableList.contains(item.category) &&
-                item.segment[1] >= item.segment[0])
-            .map(
-          (item) {
-            final segmentType = SegmentType.values.byName(item.category);
-            if (item.segment[0] == 0 && item.segment[1] == 0) {
-              videoLabel.value +=
-                  '${videoLabel.value.isNotEmpty ? '/' : ''}${segmentType.title}';
-            }
-            var skipType =
-                plPlayerController.blockSettings[segmentType.index].second;
-            if (skipType != SkipType.showOnly) {
-              if (item.segment[1] == item.segment[0] ||
-                  item.segment[1] - item.segment[0] <
-                      plPlayerController.blockLimit) {
-                skipType = SkipType.showOnly;
-              }
-            }
+        segmentList.addAll(
+          list
+              .where(
+                (item) =>
+                    plPlayerController.enableList.contains(item.category) &&
+                    item.segment[1] >= item.segment[0],
+              )
+              .map(
+                (item) {
+                  final segmentType = SegmentType.values.byName(item.category);
+                  if (item.segment[0] == 0 && item.segment[1] == 0) {
+                    videoLabel.value +=
+                        '${videoLabel.value.isNotEmpty ? '/' : ''}${segmentType.title}';
+                  }
+                  var skipType = plPlayerController
+                      .blockSettings[segmentType.index]
+                      .second;
+                  if (skipType != SkipType.showOnly) {
+                    if (item.segment[1] == item.segment[0] ||
+                        item.segment[1] - item.segment[0] <
+                            plPlayerController.blockLimit) {
+                      skipType = SkipType.showOnly;
+                    }
+                  }
 
-            final segmentModel = SegmentModel(
-              UUID: item.uuid,
-              segmentType: segmentType,
-              segment: Pair(
-                first: item.segment[0],
-                second: item.segment[1],
+                  final segmentModel = SegmentModel(
+                    UUID: item.uuid,
+                    segmentType: segmentType,
+                    segment: Pair(
+                      first: item.segment[0],
+                      second: item.segment[1],
+                    ),
+                    skipType: skipType,
+                  );
+
+                  if (positionSubscription == null &&
+                      autoPlay.value &&
+                      plPlayerController.videoPlayerController != null) {
+                    final currPost =
+                        plPlayerController.position.value.inMilliseconds;
+                    if (currPost >= segmentModel.segment.first &&
+                        currPost < segmentModel.segment.second) {
+                      _lastPos = currPost;
+                      if (segmentModel.skipType == SkipType.alwaysSkip) {
+                        plPlayerController
+                            .videoPlayerController!
+                            .stream
+                            .buffer
+                            .first
+                            .whenComplete(() {
+                              onSkip(segmentModel);
+                            });
+                      } else if (segmentModel.skipType == SkipType.skipOnce) {
+                        segmentModel.hasSkipped = true;
+                        plPlayerController
+                            .videoPlayerController!
+                            .stream
+                            .buffer
+                            .first
+                            .whenComplete(() {
+                              onSkip(segmentModel);
+                            });
+                      } else if (segmentModel.skipType ==
+                          SkipType.skipManually) {
+                        onAddItem(segmentModel);
+                      }
+                    }
+                  }
+
+                  return segmentModel;
+                },
               ),
-              skipType: skipType,
-            );
-
-            if (positionSubscription == null &&
-                !isShowCover.value &&
-                plPlayerController.videoPlayerController != null) {
-              final currPost = plPlayerController.position.value.inMilliseconds;
-              if (currPost >= segmentModel.segment.first &&
-                  currPost < segmentModel.segment.second) {
-                _lastPos = currPost;
-                if (segmentModel.skipType == SkipType.alwaysSkip) {
-                  plPlayerController.videoPlayerController!.stream.buffer.first
-                      .whenComplete(() {
-                    onSkip(segmentModel);
-                  });
-                } else if (segmentModel.skipType == SkipType.skipOnce) {
-                  segmentModel.hasSkipped = true;
-                  plPlayerController.videoPlayerController!.stream.buffer.first
-                      .whenComplete(() {
-                    onSkip(segmentModel);
-                  });
-                } else if (segmentModel.skipType == SkipType.skipManually) {
-                  onAddItem(segmentModel);
-                }
-              }
-            }
-
-            return segmentModel;
-          },
-        ).toList());
+        );
 
         // _segmentProgressList
-        (segmentProgressList ??= <Segment>[]).addAll(segmentList.map((e) {
-          double start = (e.segment.first / duration).clamp(0.0, 1.0);
-          double end = (e.segment.second / duration).clamp(0.0, 1.0);
-          return Segment(start, end, _getColor(e.segmentType));
-        }).toList());
+        segmentProgressList.addAll(
+          segmentList.map((e) {
+            double start = (e.segment.first / duration).clamp(0.0, 1.0);
+            double end = (e.segment.second / duration).clamp(0.0, 1.0);
+            return Segment(start, end, _getColor(e.segmentType));
+          }),
+        );
 
         if (positionSubscription == null &&
-            (!isShowCover.value || plPlayerController.preInitPlayer)) {
+            (autoPlay.value || plPlayerController.preInitPlayer)) {
           initSkip();
-          plPlayerController.segmentList.value = segmentProgressList!;
         }
       } catch (e) {
         if (kDebugMode) debugPrint('failed to parse sponsorblock: $e');
@@ -776,36 +797,38 @@ class VideoDetailController extends GetxController
     if (segmentList.isNotEmpty) {
       positionSubscription?.cancel();
       positionSubscription = plPlayerController
-          .videoPlayerController?.stream.position
+          .videoPlayerController
+          ?.stream
+          .position
           .listen((position) {
-        if (isShowCover.value) {
-          return;
-        }
-        int currentPos = position.inSeconds;
-        if (currentPos != _lastPos) {
-          _lastPos = currentPos;
-          final msPos = currentPos * 1000;
-          for (SegmentModel item in segmentList) {
-            // if (kDebugMode) {
-            //   debugPrint(
-            //       '${position.inSeconds},,${item.segment.first},,${item.segment.second},,${item.skipType.name},,${item.hasSkipped}');
-            // }
-            if (msPos <= item.segment.first &&
-                item.segment.first <= msPos + 1000) {
-              if (item.skipType == SkipType.alwaysSkip) {
-                onSkip(item);
-              } else if (item.skipType == SkipType.skipOnce &&
-                  !item.hasSkipped) {
-                item.hasSkipped = true;
-                onSkip(item);
-              } else if (item.skipType == SkipType.skipManually) {
-                onAddItem(item);
-              }
-              break;
+            if (!autoPlay.value) {
+              return;
             }
-          }
-        }
-      });
+            int currentPos = position.inSeconds;
+            if (currentPos != _lastPos) {
+              _lastPos = currentPos;
+              final msPos = currentPos * 1000;
+              for (SegmentModel item in segmentList) {
+                // if (kDebugMode) {
+                //   debugPrint(
+                //       '${position.inSeconds},,${item.segment.first},,${item.segment.second},,${item.skipType.name},,${item.hasSkipped}');
+                // }
+                if (msPos <= item.segment.first &&
+                    item.segment.first <= msPos + 1000) {
+                  if (item.skipType == SkipType.alwaysSkip) {
+                    onSkip(item);
+                  } else if (item.skipType == SkipType.skipOnce &&
+                      !item.hasSkipped) {
+                    item.hasSkipped = true;
+                    onSkip(item);
+                  } else if (item.skipType == SkipType.skipManually) {
+                    onAddItem(item);
+                  }
+                  break;
+                }
+              }
+            }
+          });
     }
   }
 
@@ -821,20 +844,23 @@ class VideoDetailController extends GetxController
   }
 
   void onRemoveItem(int index, item) {
-    EasyThrottle.throttle('onRemoveItem', const Duration(milliseconds: 500),
-        () {
-      try {
-        listData.removeAt(index);
-        if (listData.isEmpty) {
-          skipTimer?.cancel();
-          skipTimer = null;
-        }
-        listKey.currentState?.removeItem(
-          index,
-          (context, animation) => buildItem(item, animation),
-        );
-      } catch (_) {}
-    });
+    EasyThrottle.throttle(
+      'onRemoveItem',
+      const Duration(milliseconds: 500),
+      () {
+        try {
+          listData.removeAt(index);
+          if (listData.isEmpty) {
+            skipTimer?.cancel();
+            skipTimer = null;
+          }
+          listKey.currentState?.removeItem(
+            index,
+            (context, animation) => buildItem(item, animation),
+          );
+        } catch (_) {}
+      },
+    );
   }
 
   Widget buildItem(dynamic item, Animation<double> animation) {
@@ -855,8 +881,9 @@ class VideoDetailController extends GetxController
               }
             },
             child: SearchText(
-              bgColor:
-                  theme.colorScheme.secondaryContainer.withValues(alpha: 0.8),
+              bgColor: theme.colorScheme.secondaryContainer.withValues(
+                alpha: 0.8,
+              ),
               textColor: theme.colorScheme.onSecondaryContainer,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               fontSize: 14,
@@ -866,17 +893,11 @@ class VideoDetailController extends GetxController
               onTap: (_) {
                 if (item is int) {
                   try {
-                    VideoIntroController videoIntroController =
-                        Get.find<VideoIntroController>(tag: heroTag);
+                    UgcIntroController ugcIntroController =
+                        Get.find<UgcIntroController>(tag: heroTag);
                     Part part =
-                        videoIntroController.videoDetail.value.pages![item];
-                    videoIntroController.changeSeasonOrbangu(
-                      null,
-                      bvid,
-                      part.cid,
-                      IdUtils.bv2av(bvid),
-                      null,
-                    );
+                        ugcIntroController.videoDetail.value.pages![item];
+                    ugcIntroController.onChangeEpisode(part);
                     SmartDialog.showToast('已跳至第${item + 1}P');
                   } catch (e) {
                     if (kDebugMode) debugPrint('$e');
@@ -898,8 +919,9 @@ class VideoDetailController extends GetxController
   Future<void> onSkip(SegmentModel item, [bool isSkip = true]) async {
     try {
       plPlayerController.danmakuController?.clear();
-      await plPlayerController.videoPlayerController
-          ?.seek(Duration(milliseconds: item.segment.second));
+      await plPlayerController.videoPlayerController?.seek(
+        Duration(milliseconds: item.segment.second),
+      );
       if (isSkip) {
         if (Pref.blockToast) {
           _showBlockToast('已跳过${item.segmentType.shortTitle}片段');
@@ -957,15 +979,13 @@ class VideoDetailController extends GetxController
         },
         transitionDuration: const Duration(milliseconds: 500),
         transitionBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.linear;
-
-          var tween =
-              Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-
           return SlideTransition(
-            position: animation.drive(tween),
+            position: animation.drive(
+              Tween(
+                begin: const Offset(0.0, 1.0),
+                end: Offset.zero,
+              ).chain(CurveTween(curve: Curves.linear)),
+            ),
             child: child,
           );
         },
@@ -976,78 +996,52 @@ class VideoDetailController extends GetxController
     }
   }
 
+  VideoItem findVideoByQa(int qa) {
+    /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
+    final videoList = data.dash!.video!.where((i) => i.id == qa).toList();
+
+    final currentDecodeFormats = this.currentDecodeFormats.codes;
+    final defaultDecodeFormats = VideoDecodeFormatType.fromString(
+      cacheDecode,
+    ).codes;
+    final secondDecodeFormats = VideoDecodeFormatType.fromString(
+      cacheSecondDecode,
+    ).codes;
+
+    VideoItem? video;
+    for (var i in videoList) {
+      final codec = i.codecs!;
+      if (currentDecodeFormats.any(codec.startsWith)) {
+        video = i;
+        break;
+      } else if (defaultDecodeFormats.any(codec.startsWith)) {
+        video = i;
+      } else if (video == null && secondDecodeFormats.any(codec.startsWith)) {
+        video = i;
+      }
+    }
+    return video ?? videoList.first;
+  }
+
   /// 更新画质、音质
   void updatePlayer() {
-    isShowCover.value = false;
+    autoPlay.value = true;
     playedTime = plPlayerController.position.value;
     plPlayerController.removeListeners();
     plPlayerController.isBuffering.value = false;
     plPlayerController.buffered.value = Duration.zero;
 
-    /// 根据currentVideoQa和currentDecodeFormats 重新设置videoUrl
-    List<VideoItem> videoList =
-        data.dash!.video!.where((i) => i.id == currentVideoQa.code).toList();
-
-    final List supportDecodeFormats = videoList.map((e) => e.codecs!).toList();
-    VideoDecodeFormatType defaultDecodeFormats =
-        VideoDecodeFormatTypeExt.fromString(cacheDecode)!;
-    VideoDecodeFormatType secondDecodeFormats =
-        VideoDecodeFormatTypeExt.fromString(cacheSecondDecode)!;
-    try {
-      // 当前视频没有对应格式返回第一个
-      int flag = 0;
-      for (var i in supportDecodeFormats) {
-        if (i.startsWith(currentDecodeFormats.code)) {
-          flag = 1;
-          break;
-        } else if (i.startsWith(defaultDecodeFormats.code)) {
-          flag = 2;
-        } else if (i.startsWith(secondDecodeFormats.code)) {
-          if (flag == 0) {
-            flag = 4;
-          }
-        }
-      }
-      if (flag == 1) {
-        //currentDecodeFormats
-        firstVideo = videoList.firstWhere(
-            (i) => i.codecs!.startsWith(currentDecodeFormats.code),
-            orElse: () => videoList.first);
-      } else {
-        if (currentVideoQa == VideoQuality.dolbyVision) {
-          currentDecodeFormats =
-              VideoDecodeFormatTypeExt.fromString(videoList.first.codecs!)!;
-          firstVideo = videoList.first;
-        } else if (flag == 2) {
-          //defaultDecodeFormats
-          currentDecodeFormats = defaultDecodeFormats;
-          firstVideo = videoList.firstWhere(
-            (i) => i.codecs!.startsWith(defaultDecodeFormats.code),
-            orElse: () => videoList.first,
-          );
-        } else if (flag == 4) {
-          //secondDecodeFormats
-          currentDecodeFormats = secondDecodeFormats;
-          firstVideo = videoList.firstWhere(
-            (i) => i.codecs!.startsWith(secondDecodeFormats.code),
-            orElse: () => videoList.first,
-          );
-        } else if (flag == 0) {
-          currentDecodeFormats =
-              VideoDecodeFormatTypeExt.fromString(supportDecodeFormats.first)!;
-          firstVideo = videoList.first;
-        }
-      }
-    } catch (err) {
-      SmartDialog.showToast('DecodeFormats error: $err');
+    final video = findVideoByQa(currentVideoQa.value.code);
+    if (firstVideo.codecs != video.codecs) {
+      currentDecodeFormats = VideoDecodeFormatType.fromString(video.codecs!);
     }
-
-    videoUrl = firstVideo.baseUrl!;
+    firstVideo = video;
+    videoUrl = video.baseUrl!;
 
     /// 根据currentAudioQa 重新设置audioUrl
     if (currentAudioQa != null) {
-      final AudioItem firstAudio = data.dash!.audio!.firstWhere(
-        (AudioItem i) => i.id == currentAudioQa!.code,
+      final firstAudio = data.dash!.audio!.firstWhere(
+        (i) => i.id == currentAudioQa!.code,
         orElse: () => data.dash!.audio!.first,
       );
       audioUrl = firstAudio.baseUrl ?? '';
@@ -1068,32 +1062,31 @@ class VideoDetailController extends GetxController
         videoSource: plPlayerController.onlyPlayAudio.value
             ? audio ?? audioUrl
             : video ?? videoUrl,
-        audioSource:
-            plPlayerController.onlyPlayAudio.value ? '' : audio ?? audioUrl,
+        audioSource: plPlayerController.onlyPlayAudio.value
+            ? ''
+            : audio ?? audioUrl,
         type: DataSourceType.network,
         httpHeaders: {
           'user-agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-          'referer': HttpString.baseUrl
+          'referer': HttpString.baseUrl,
         },
       ),
-      segmentList: segmentProgressList,
-      viewPointList: viewPointList,
-      showVP: showVP,
-      dmTrend: dmTrend,
       seekTo: seekToTime ?? defaultST ?? playedTime,
-      duration: duration ??
+      duration:
+          duration ??
           (data.timeLength == null
               ? null
               : Duration(milliseconds: data.timeLength!)),
-      // 宽>高 水平 否则 垂直
-      direction: direction.value,
+      isVertical: isVertical.value,
+      aid: aid,
       bvid: bvid,
       cid: cid.value,
       autoplay: autoplay ?? autoPlay.value,
-      epid: videoType == SearchType.media_bangumi ? epId : null,
-      seasonId: videoType == SearchType.media_bangumi ? seasonId : null,
-      subType: videoType == SearchType.media_bangumi ? subType : null,
+      epid: isUgc ? null : epId,
+      seasonId: isUgc ? null : seasonId,
+      pgcType: isUgc ? null : pgcType,
+      videoType: videoType,
       callback: () {
         if (videoState.value is! Success) {
           videoState.value = const Success(null);
@@ -1104,13 +1097,15 @@ class VideoDetailController extends GetxController
       height: firstVideo.height,
     );
 
-    initSkip();
-
-    if (vttSubtitlesIndex.value == -1) {
-      _getSubtitle();
+    if (plPlayerController.enableSponsorBlock) {
+      initSkip();
     }
 
-    if (plPlayerController.showDmChart && dmTrend == null) {
+    if (vttSubtitlesIndex.value == -1) {
+      _queryPlayInfo();
+    }
+
+    if (plPlayerController.showDmChart && dmTrend.value == null) {
       _getDmTrend();
     }
 
@@ -1118,36 +1113,56 @@ class VideoDetailController extends GetxController
   }
 
   bool isQuerying = false;
+
+  final Rx<List<LanguageItem>?> languages = Rx<List<LanguageItem>?>(null);
+  final Rx<String?> currLang = Rx<String?>(null);
+  void setLanguage(String language) {
+    if (!isLoginVideo) {
+      SmartDialog.showToast('账号未登录');
+      return;
+    }
+    currLang.value = language;
+    queryVideoUrl(defaultST: playedTime);
+  }
+
   // 视频链接
-  Future<void> queryVideoUrl([Duration? defaultST]) async {
+  Future<void> queryVideoUrl({
+    Duration? defaultST,
+    bool fromReset = false,
+  }) async {
     if (isQuerying) {
       return;
     }
     isQuerying = true;
-    if (plPlayerController.enableSponsorBlock) {
+    if (plPlayerController.enableSponsorBlock && !fromReset) {
       _querySponsorBlock();
     }
     if (plPlayerController.cacheVideoQa == null) {
-      await Connectivity().checkConnectivity().then((res) {
-        plPlayerController
-          ..cacheVideoQa = res.contains(ConnectivityResult.wifi)
-              ? Pref.defaultVideoQa
-              : Pref.defaultVideoQaCellular
-          ..cacheAudioQa = res.contains(ConnectivityResult.wifi)
-              ? Pref.defaultAudioQa
-              : Pref.defaultAudioQaCellular;
-      });
+      final isWiFi = await Utils.isWiFi;
+      plPlayerController
+        ..cacheVideoQa = isWiFi
+            ? Pref.defaultVideoQa
+            : Pref.defaultVideoQaCellular
+        ..cacheAudioQa = isWiFi
+            ? Pref.defaultAudioQa
+            : Pref.defaultAudioQaCellular;
     }
+
     var result = await VideoHttp.videoUrl(
       cid: cid.value,
       bvid: bvid,
       epid: epId,
       seasonId: seasonId,
-      forcePgcApi: Get.arguments?['pgcApi'] ?? false,
+      tryLook: plPlayerController.tryLook,
+      videoType: _actualVideoType ?? videoType,
+      language: currLang.value,
     );
 
-    if (result['status']) {
-      data = result['data'];
+    if (result.isSuccess) {
+      data = result.data;
+
+      languages.value = data.language?.items;
+      currLang.value = data.curLanguage;
 
       if (data.acceptDesc?.contains('试看') == true) {
         SmartDialog.showToast(
@@ -1158,25 +1173,24 @@ class VideoDetailController extends GetxController
       if (data.dash == null && data.durl != null) {
         videoUrl = data.durl!.first.url!;
         audioUrl = '';
-        if (Get.arguments?['progress'] != null) {
-          this.defaultST = Duration(milliseconds: Get.arguments['progress']);
-          Get.arguments['progress'] = null;
+        final progress = args['progress'];
+        if (progress != null) {
+          this.defaultST = Duration(milliseconds: progress);
+          args['progress'] = null;
         } else {
           this.defaultST = defaultST ?? Duration.zero;
         }
         // 实际为FLV/MP4格式，但已被淘汰，这里仅做兜底处理
         firstVideo = VideoItem(
-            id: data.quality!,
-            baseUrl: videoUrl,
-            codecs: 'avc1',
-            quality: VideoQuality.fromCode(data.quality!));
+          id: data.quality!,
+          baseUrl: videoUrl,
+          codecs: 'avc1',
+          quality: VideoQuality.fromCode(data.quality!),
+        );
         setVideoHeight();
-        currentDecodeFormats = VideoDecodeFormatTypeExt.fromString('avc1')!;
-        currentVideoQa = VideoQuality.fromCode(data.quality!);
-        if (autoPlay.value) {
-          isShowCover.value = false;
-          await playerInit();
-        } else if (plPlayerController.preInitPlayer) {
+        currentDecodeFormats = VideoDecodeFormatType.fromString('avc1');
+        currentVideoQa = Rx(VideoQuality.fromCode(data.quality!));
+        if (autoPlay.value || plPlayerController.preInitPlayer) {
           await playerInit();
         }
         isQuerying = false;
@@ -1185,7 +1199,6 @@ class VideoDetailController extends GetxController
       if (data.dash == null) {
         SmartDialog.showToast('视频资源不存在');
         autoPlay.value = false;
-        isShowCover.value = true;
         videoState.value = const Error('视频资源不存在');
         if (plPlayerController.isFullScreen.value) {
           plPlayerController.toggleFullScreen(false);
@@ -1199,79 +1212,81 @@ class VideoDetailController extends GetxController
       int currentHighVideoQa = allVideosList.first.quality.code;
       // 预设的画质为null，则当前可用的最高质量
       int resVideoQa = currentHighVideoQa;
-      if (plPlayerController.cacheVideoQa! <= currentHighVideoQa) {
+      if (data.acceptQuality?.isNotEmpty == true &&
+          plPlayerController.cacheVideoQa! <= currentHighVideoQa) {
         // 如果预设的画质低于当前最高
-        final List<int> numbers =
-            data.acceptQuality!.where((e) => e <= currentHighVideoQa).toList();
-        resVideoQa =
-            Utils.findClosestNumber(plPlayerController.cacheVideoQa!, numbers);
+        final List<int> numbers = data.acceptQuality!
+            .where((e) => e <= currentHighVideoQa)
+            .toList();
+        resVideoQa = Utils.findClosestNumber(
+          plPlayerController.cacheVideoQa!,
+          numbers,
+        );
       }
-      currentVideoQa = VideoQuality.fromCode(resVideoQa);
+      currentVideoQa = Rx(VideoQuality.fromCode(resVideoQa));
 
       /// 取出符合当前画质的videoList
-      final List<VideoItem> videosList =
-          allVideosList.where((e) => e.quality.code == resVideoQa).toList();
+      final List<VideoItem> videosList = allVideosList
+          .where((e) => e.quality.code == resVideoQa)
+          .toList();
 
       /// 优先顺序 设置中指定解码格式 -> 当前可选的首个解码格式
       final List<FormatItem> supportFormats = data.supportFormats!;
       // 根据画质选编码格式
-      final List supportDecodeFormats = supportFormats
-          .firstWhere((e) => e.quality == resVideoQa,
-              orElse: () => supportFormats.first)
+      final List<String> supportDecodeFormats = supportFormats
+          .firstWhere(
+            (e) => e.quality == resVideoQa,
+            orElse: () => supportFormats.first,
+          )
           .codecs!;
       // 默认从设置中取AV1
-      currentDecodeFormats = VideoDecodeFormatTypeExt.fromString(cacheDecode)!;
+      currentDecodeFormats = VideoDecodeFormatType.fromString(cacheDecode);
       VideoDecodeFormatType secondDecodeFormats =
-          VideoDecodeFormatTypeExt.fromString(cacheSecondDecode)!;
+          VideoDecodeFormatType.fromString(cacheSecondDecode);
       // 当前视频没有对应格式返回第一个
       int flag = 0;
       for (var i in supportDecodeFormats) {
-        if (i.startsWith(currentDecodeFormats.code)) {
+        if (currentDecodeFormats.codes.any(i.startsWith)) {
           flag = 1;
           break;
-        } else if (i.startsWith(secondDecodeFormats.code)) {
+        } else if (secondDecodeFormats.codes.any(i.startsWith)) {
           flag = 2;
         }
       }
       if (flag == 2) {
         currentDecodeFormats = secondDecodeFormats;
       } else if (flag == 0) {
-        currentDecodeFormats =
-            VideoDecodeFormatTypeExt.fromString(supportDecodeFormats.first)!;
+        currentDecodeFormats = VideoDecodeFormatType.fromString(
+          supportDecodeFormats.first,
+        );
       }
 
       /// 取出符合当前解码格式的videoItem
       firstVideo = videosList.firstWhere(
-          (e) => e.codecs!.startsWith(currentDecodeFormats.code),
-          orElse: () => videosList.first);
+        (e) => currentDecodeFormats.codes.any(e.codecs!.startsWith),
+        orElse: () => videosList.first,
+      );
       setVideoHeight();
 
       videoUrl = VideoUtils.getCdnUrl(firstVideo);
 
       /// 优先顺序 设置中指定质量 -> 当前可选的最高质量
-      late AudioItem? firstAudio;
-      final List<AudioItem> audiosList = data.dash!.audio ?? <AudioItem>[];
-      if (data.dash!.dolby?.audio != null &&
-          data.dash!.dolby!.audio!.isNotEmpty) {
-        // 杜比
-        audiosList.insert(0, data.dash!.dolby!.audio!.first);
-      }
-
-      if (data.dash!.flac?.audio != null) {
-        // 无损
-        audiosList.insert(0, data.dash!.flac!.audio!);
-      }
-
-      if (audiosList.isNotEmpty) {
+      AudioItem? firstAudio;
+      final audiosList = data.dash?.audio;
+      if (audiosList != null && audiosList.isNotEmpty) {
         final List<int> numbers = audiosList.map((map) => map.id!).toList();
-        int closestNumber =
-            Utils.findClosestNumber(plPlayerController.cacheAudioQa, numbers);
+        int closestNumber = Utils.findClosestNumber(
+          plPlayerController.cacheAudioQa,
+          numbers,
+        );
         if (!numbers.contains(plPlayerController.cacheAudioQa) &&
             numbers.any((e) => e > plPlayerController.cacheAudioQa)) {
           closestNumber = 30280;
         }
-        firstAudio = audiosList.firstWhere((e) => e.id == closestNumber,
-            orElse: () => audiosList.first);
+        firstAudio = audiosList.firstWhere(
+          (e) => e.id == closestNumber,
+          orElse: () => audiosList.first,
+        );
         audioUrl = VideoUtils.getCdnUrl(firstAudio);
         if (firstAudio.id != null) {
           currentAudioQa = AudioQuality.fromCode(firstAudio.id!);
@@ -1281,42 +1296,33 @@ class VideoDetailController extends GetxController
         audioUrl = '';
       }
       //
-      if (Get.arguments?['progress'] != null) {
-        this.defaultST = Duration(milliseconds: Get.arguments['progress']);
-        Get.arguments['progress'] = null;
+      final progress = args['progress'];
+      if (progress != null) {
+        this.defaultST = Duration(milliseconds: progress);
+        args['progress'] = null;
       } else {
         this.defaultST =
-            defaultST ?? Duration(milliseconds: data.lastPlayTime!);
+            defaultST ??
+            (data.lastPlayTime == null
+                ? Duration.zero
+                : Duration(milliseconds: data.lastPlayTime!));
       }
-      if (autoPlay.value) {
-        isShowCover.value = false;
-        await playerInit();
-      } else if (plPlayerController.preInitPlayer) {
+      if (autoPlay.value || plPlayerController.preInitPlayer) {
         await playerInit();
       }
     } else {
       autoPlay.value = false;
-      isShowCover.value = true;
-      videoState.value = Error(result['msg']);
+      videoState.value = result..toast();
       if (plPlayerController.isFullScreen.value) {
         plPlayerController.toggleFullScreen(false);
-      }
-      if (result['code'] == -404) {
-        SmartDialog.showToast('视频不存在或已被删除');
-      }
-      if (result['code'] == 87008) {
-        SmartDialog.showToast("当前视频可能是专属视频，可能需包月充电观看(${result['msg']})");
-      } else {
-        SmartDialog.showToast("错误（${result['code']}）：${result['msg']}");
       }
     }
     isQuerying = false;
   }
 
   void onBlock(BuildContext context) {
-    postList ??= <PostSegmentModel>[];
-    if (postList!.isEmpty) {
-      postList!.add(
+    if (postList.isEmpty) {
+      postList.add(
         PostSegmentModel(
           segment: Pair(
             first: 0,
@@ -1349,6 +1355,7 @@ class VideoDetailController extends GetxController
     } else {
       childKey.currentState?.showBottomSheet(
         backgroundColor: Colors.transparent,
+        constraints: const BoxConstraints(),
         (context) => PostPanel(
           videoDetailController: this,
           plPlayerController: plPlayerController,
@@ -1360,24 +1367,20 @@ class VideoDetailController extends GetxController
   RxList<Subtitle> subtitles = RxList<Subtitle>();
   late final Map<int, String> _vttSubtitles = {};
   late final RxInt vttSubtitlesIndex = (-1).obs;
-  late bool showVP = true;
-
-  void _getSubtitle() {
-    _vttSubtitles.clear();
-    viewPointList.clear();
-    _queryPlayInfo();
-  }
+  late final RxBool showVP = true.obs;
+  late final RxList<Segment> viewPointList = <Segment>[].obs;
 
   // 设定字幕轨道
   Future<void> setSubtitle(int index) async {
     if (index <= 0) {
-      plPlayerController.videoPlayerController
-          ?.setSubtitleTrack(SubtitleTrack.no());
+      plPlayerController.videoPlayerController?.setSubtitleTrack(
+        SubtitleTrack.no(),
+      );
       vttSubtitlesIndex.value = index;
       return;
     }
 
-    void setSub(subtitle) {
+    void setSub(String subtitle) {
       plPlayerController.videoPlayerController?.setSubtitleTrack(
         SubtitleTrack.data(
           subtitle,
@@ -1392,8 +1395,9 @@ class VideoDetailController extends GetxController
     if (subtitle != null) {
       setSub(subtitle);
     } else {
-      var result =
-          await VideoHttp.vttSubtitles(subtitles[index - 1].subtitleUrl!);
+      var result = await VideoHttp.vttSubtitles(
+        subtitles[index - 1].subtitleUrl!,
+      );
       if (result != null) {
         _vttSubtitles[index - 1] = result;
         setSub(result);
@@ -1405,6 +1409,7 @@ class VideoDetailController extends GetxController
   int? graphVersion;
   EdgeInfoData? steinEdgeInfo;
   late final RxBool showSteinEdgeInfo = false.obs;
+
   Future<void> getSteinEdgeInfo([int? edgeId]) async {
     steinEdgeInfo = null;
     try {
@@ -1413,7 +1418,7 @@ class VideoDetailController extends GetxController
         queryParameters: {
           'bvid': bvid,
           'graph_version': graphVersion,
-          if (edgeId != null) 'edge_id': edgeId,
+          'edge_id': ?edgeId,
         },
       );
       if (res.data['code'] == 0) {
@@ -1431,13 +1436,17 @@ class VideoDetailController extends GetxController
   late bool continuePlayingPart = Pref.continuePlayingPart;
 
   Future<void> _queryPlayInfo() async {
+    _vttSubtitles.clear();
+    if (plPlayerController.showViewPoints) {
+      viewPointList.clear();
+    }
     var res = await VideoHttp.playInfo(bvid: bvid, cid: cid.value);
     if (res['status']) {
       PlayInfoData playInfo = res['data'];
       // interactive video
-      if (graphVersion == null) {
+      if (isUgc && graphVersion == null) {
         try {
-          final introCtr = Get.find<VideoIntroController>(tag: heroTag);
+          final introCtr = Get.find<UgcIntroController>(tag: heroTag);
           if (introCtr.videoDetail.value.rights?.isSteinGate == 1) {
             graphVersion = playInfo.interaction?.graphVersion;
             getSteinEdgeInfo();
@@ -1447,16 +1456,17 @@ class VideoDetailController extends GetxController
         }
       }
 
-      if (continuePlayingPart) {
+      if (isUgc && continuePlayingPart) {
         continuePlayingPart = false;
         try {
-          VideoIntroController videoIntroController =
-              Get.find<VideoIntroController>(tag: heroTag);
-          if ((videoIntroController.videoDetail.value.pages?.length ?? 0) > 1 &&
+          UgcIntroController ugcIntroController = Get.find<UgcIntroController>(
+            tag: heroTag,
+          );
+          if ((ugcIntroController.videoDetail.value.pages?.length ?? 0) > 1 &&
               playInfo.lastPlayCid != null &&
               playInfo.lastPlayCid != 0) {
             if (playInfo.lastPlayCid != cid.value) {
-              int index = videoIntroController.videoDetail.value.pages!
+              int index = ugcIntroController.videoDetail.value.pages!
                   .indexWhere((item) => item.cid == playInfo.lastPlayCid);
               if (index != -1) {
                 onAddItem(index);
@@ -1466,11 +1476,14 @@ class VideoDetailController extends GetxController
         } catch (_) {}
       }
 
-      if (playInfo.viewPoints?.isNotEmpty == true && Pref.showViewPoints) {
+      if (plPlayerController.showViewPoints &&
+          playInfo.viewPoints?.isNotEmpty == true) {
         try {
-          viewPointList = playInfo.viewPoints!.map((item) {
-            double start =
-                (item.to! / (data.timeLength! / 1000)).clamp(0.0, 1.0);
+          viewPointList.value = playInfo.viewPoints!.map((item) {
+            double start = (item.to! / (data.timeLength! / 1000)).clamp(
+              0.0,
+              1.0,
+            );
             return Segment(
               start,
               start,
@@ -1481,10 +1494,6 @@ class VideoDetailController extends GetxController
               item.to,
             );
           }).toList();
-          if (plPlayerController.viewPointList.isEmpty) {
-            plPlayerController.viewPointList.value = viewPointList;
-            plPlayerController.showVP.value = showVP = true;
-          }
         } catch (_) {}
       }
 
@@ -1492,12 +1501,14 @@ class VideoDetailController extends GetxController
         int idx = 0;
         subtitles.value = playInfo.subtitle!.subtitles!;
 
-        String preference = Pref.subtitlePreference;
-        if (preference != 'off') {
+        SubtitlePrefType preference =
+            SubtitlePrefType.values[Pref.subtitlePreferenceV2];
+        if (preference != SubtitlePrefType.off) {
           idx = subtitles.indexWhere((i) => !i.lan!.startsWith('ai')) + 1;
           if (idx == 0) {
-            if (preference == 'on' ||
-                (preference == 'auto' &&
+            if (preference == SubtitlePrefType.on ||
+                (Utils.isMobile &&
+                    preference == SubtitlePrefType.auto &&
                     (await FlutterVolumeController.getVolume() ?? 0) <= 0)) {
               idx = 1;
             }
@@ -1509,11 +1520,11 @@ class VideoDetailController extends GetxController
   }
 
   void updateMediaListHistory(int aid) {
-    if (Get.arguments?['sortField'] != null) {
+    if (args['sortField'] != null) {
       VideoHttp.medialistHistory(
         desc: _mediaDesc ? 1 : 0,
         oid: aid,
-        upperMid: Get.arguments?['mediaId'],
+        upperMid: args['mediaId'],
       );
     }
   }
@@ -1527,16 +1538,18 @@ class VideoDetailController extends GetxController
         plPlayerController.makeHeartBeat(
           data.timeLength != null
               ? (data.timeLength! - playedTime!.inMilliseconds).abs() <= 1000
-                  ? -1
-                  : playedTime!.inSeconds
+                    ? -1
+                    : playedTime!.inSeconds
               : playedTime!.inSeconds,
-          type: 'status',
+          type: HeartBeatType.status,
           isManual: true,
+          aid: aid,
           bvid: bvid,
           cid: cid.value,
-          epid: videoType == SearchType.media_bangumi ? epId : null,
-          seasonId: videoType == SearchType.media_bangumi ? seasonId : null,
-          subType: videoType == SearchType.media_bangumi ? subType : null,
+          epid: isUgc ? null : epId,
+          seasonId: isUgc ? null : seasonId,
+          pgcType: isUgc ? null : pgcType,
+          videoType: videoType,
         );
       } catch (_) {}
     }
@@ -1548,21 +1561,29 @@ class VideoDetailController extends GetxController
     scrollCtr
       ..removeListener(scrollListener)
       ..dispose();
-    animationController.dispose();
+    animController?.dispose();
     super.onClose();
   }
 
-  void onReset([bool? isStein]) {
+  void onReset({bool isStein = false}) {
     playedTime = null;
     videoUrl = null;
     audioUrl = null;
+
+    // language
+    languages.value = null;
+    currLang.value = null;
 
     if (scrollRatio.value != 0) {
       scrollRatio.refresh();
     }
 
+    // dm trend
+    if (plPlayerController.showDmChart) {
+      dmTrend.value = null;
+    }
+
     // danmaku
-    dmTrend = null;
     savedDanmaku = null;
 
     // subtitle
@@ -1571,7 +1592,9 @@ class VideoDetailController extends GetxController
     _vttSubtitles.clear();
 
     // view point
-    viewPointList.clear();
+    if (plPlayerController.showViewPoints) {
+      viewPointList.clear();
+    }
 
     // sponsor block
     if (plPlayerController.enableSponsorBlock) {
@@ -1579,7 +1602,7 @@ class VideoDetailController extends GetxController
       positionSubscription = null;
       videoLabel.value = '';
       segmentList.clear();
-      segmentProgressList = null;
+      segmentProgressList.clear();
     }
 
     // interactive video
@@ -1590,10 +1613,12 @@ class VideoDetailController extends GetxController
     showSteinEdgeInfo.value = false;
   }
 
-  List<double>? dmTrend;
+  late final Rx<LoadingState<List<double>>?> dmTrend =
+      Rx<LoadingState<List<double>>?>(null);
+  late final RxBool showDmTreandChart = true.obs;
 
   Future<void> _getDmTrend() async {
-    dmTrend = null;
+    dmTrend.value = LoadingState<List<double>>.loading();
     try {
       var res = await Request().get(
         'https://bvc.bilivideo.com/pbp/data',
@@ -1602,16 +1627,15 @@ class VideoDetailController extends GetxController
           'cid': cid.value,
         },
       );
-
       PbpData data = PbpData.fromJson(res.data);
       int stepSec = data.stepSec ?? 0;
       if (stepSec != 0 && data.events?.eDefault?.isNotEmpty == true) {
-        dmTrend = data.events?.eDefault;
-        if (plPlayerController.dmTrend.isEmpty) {
-          plPlayerController.dmTrend.value = dmTrend!;
-        }
+        dmTrend.value = Success(data.events!.eDefault!);
+        return;
       }
+      dmTrend.value = const Error(null);
     } catch (e) {
+      dmTrend.value = const Error(null);
       if (kDebugMode) debugPrint('_getDmTrend: $e');
     }
   }
@@ -1619,8 +1643,9 @@ class VideoDetailController extends GetxController
   void showNoteList(BuildContext context) {
     String? title;
     try {
-      title =
-          Get.find<VideoIntroController>(tag: heroTag).videoDetail.value.title;
+      title = Get.find<UgcIntroController>(
+        tag: heroTag,
+      ).videoDetail.value.title;
     } catch (_) {}
     if (plPlayerController.isFullScreen.value || showVideoSheet) {
       PageUtils.showVideoBottomSheet(
@@ -1629,7 +1654,7 @@ class VideoDetailController extends GetxController
             ? Theme(
                 data: MyApp.darkThemeData!,
                 child: NoteListPage(
-                  oid: oid.value,
+                  oid: aid,
                   enableSlide: false,
                   heroTag: heroTag,
                   isStein: graphVersion != null,
@@ -1637,7 +1662,7 @@ class VideoDetailController extends GetxController
                 ),
               )
             : NoteListPage(
-                oid: oid.value,
+                oid: aid,
                 enableSlide: false,
                 heroTag: heroTag,
                 isStein: graphVersion != null,
@@ -1648,8 +1673,9 @@ class VideoDetailController extends GetxController
     } else {
       childKey.currentState?.showBottomSheet(
         backgroundColor: Colors.transparent,
+        constraints: const BoxConstraints(),
         (context) => NoteListPage(
-          oid: oid.value,
+          oid: aid,
           heroTag: heroTag,
           isStein: graphVersion != null,
           title: title,

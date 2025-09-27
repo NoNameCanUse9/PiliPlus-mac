@@ -23,6 +23,7 @@ class WhisperDetailController extends CommonListController<RspSessionMsg, Msg> {
   final String name = Get.arguments['name'];
   final String face = Get.arguments['face'];
   final int? mid = Get.arguments['mid'];
+  final bool isLive = Get.arguments['isLive'] ?? false;
 
   Int64? msgSeqno;
 
@@ -64,13 +65,17 @@ class WhisperDetailController extends CommonListController<RspSessionMsg, Msg> {
     }
   }
 
+  late bool _isSending = false;
   Future<void> sendMsg({
-    required String message,
+    String? message,
     Map? picMsg,
     required VoidCallback onClearText,
     int? msgType,
     int? index,
   }) async {
+    assert((message != null) ^ (picMsg != null));
+    if (_isSending) return;
+    _isSending = true;
     feedBack();
     SmartDialog.dismiss();
     if (!accountService.isLogin.value) {
@@ -80,8 +85,9 @@ class WhisperDetailController extends CommonListController<RspSessionMsg, Msg> {
     var result = await ImGrpc.sendMsg(
       senderUid: accountService.mid,
       receiverId: mid!,
-      content:
-          msgType == 5 ? message : jsonEncode(picMsg ?? {"content": message}),
+      content: msgType == 5
+          ? message!
+          : jsonEncode(picMsg ?? {"content": message!}),
       msgType: MsgType.values[msgType ?? (picMsg != null ? 2 : 1)],
     );
     SmartDialog.dismiss();
@@ -99,6 +105,7 @@ class WhisperDetailController extends CommonListController<RspSessionMsg, Msg> {
     } else {
       result.toast();
     }
+    _isSending = false;
   }
 
   @override

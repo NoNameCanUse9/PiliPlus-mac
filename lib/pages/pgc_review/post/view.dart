@@ -1,13 +1,12 @@
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/http/pgc.dart';
-import 'package:PiliPlus/pages/common/common_collapse_slide_page.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
-class PgcReviewPostPanel extends CommonCollapseSlidePage {
+class PgcReviewPostPanel extends StatefulWidget {
   const PgcReviewPostPanel({
     super.key,
     required this.name,
@@ -28,8 +27,7 @@ class PgcReviewPostPanel extends CommonCollapseSlidePage {
   State<PgcReviewPostPanel> createState() => _PgcReviewPostPanelState();
 }
 
-class _PgcReviewPostPanelState
-    extends CommonCollapseSlidePageState<PgcReviewPostPanel> {
+class _PgcReviewPostPanelState extends State<PgcReviewPostPanel> {
   late final _controller = TextEditingController(text: widget.content);
   late final RxInt _score = (widget.score ?? 0).obs;
   late final RxBool _shareFeed = false.obs;
@@ -49,7 +47,7 @@ class _PgcReviewPostPanelState
   }
 
   @override
-  Widget buildPage(ThemeData theme) {
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -73,10 +71,8 @@ class _PgcReviewPostPanelState
               ),
               const SizedBox(width: 12),
             ],
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(1),
-              child: Divider(
-                height: 1,
+            shape: Border(
+              bottom: BorderSide(
                 color: theme.colorScheme.outline.withValues(alpha: 0.1),
               ),
             ),
@@ -84,7 +80,7 @@ class _PgcReviewPostPanelState
         ),
         Center(
           child: Padding(
-            padding: const EdgeInsets.only(top: 20, bottom: 10),
+            padding: const EdgeInsets.only(top: 10, bottom: 8),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onHorizontalDragUpdate: (details) =>
@@ -98,12 +94,12 @@ class _PgcReviewPostPanelState
                     return Obx(
                       () => index <= _score.value - 1
                           ? const Icon(
-                              CustomIcon.star_favorite_solid,
+                              CustomIcons.star_favorite_solid,
                               size: 50,
                               color: Color(0xFFFFAD35),
                             )
                           : const Icon(
-                              CustomIcon.star_favorite_line,
+                              CustomIcons.star_favorite_line,
                               size: 50,
                               color: Colors.grey,
                             ),
@@ -114,39 +110,42 @@ class _PgcReviewPostPanelState
             ),
           ),
         ),
-        SizedBox(
-          width: double.infinity,
+        Center(
           child: Obx(
-            () => Text(
-              switch (_score.value) {
-                1 => '很差',
-                2 => '较差',
-                3 => '还行',
-                4 => '很好',
-                5 => '佳作',
-                _ => '轻触评分',
-              },
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: _score.value == 0
-                    ? theme.colorScheme.outline
-                    : const Color(0xFFFFAD35),
-              ),
-            ),
+            () {
+              final score = _score.value;
+              return Text(
+                switch (score) {
+                  1 => '很差',
+                  2 => '较差',
+                  3 => '还行',
+                  4 => '很好',
+                  5 => '佳作',
+                  _ => '轻触评分',
+                },
+                style: TextStyle(
+                  fontSize: 16,
+                  color: score == 0
+                      ? theme.colorScheme.outline
+                      : const Color(0xFFFFAD35),
+                ),
+              );
+            },
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: TextField(
-            maxLength: 100,
-            minLines: 5,
-            maxLines: 5,
-            controller: _controller,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
+        Flexible(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              maxLength: 100,
+              minLines: 5,
+              maxLines: 5,
+              controller: _controller,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+              ),
+              textInputAction: TextInputAction.done,
             ),
-            textInputAction: TextInputAction.done,
           ),
         ),
         if (!_isMod)
@@ -157,7 +156,8 @@ class _PgcReviewPostPanelState
               onTap: () => _shareFeed.value = !_shareFeed.value,
               child: Obx(
                 () {
-                  Color color = _shareFeed.value
+                  final shareFeed = _shareFeed.value;
+                  Color color = shareFeed
                       ? theme.colorScheme.primary
                       : theme.colorScheme.outline;
                   return Row(
@@ -165,7 +165,7 @@ class _PgcReviewPostPanelState
                     children: [
                       Icon(
                         size: 22,
-                        _shareFeed.value
+                        shareFeed
                             ? Icons.check_box_outlined
                             : Icons.check_box_outline_blank_outlined,
                         color: color,
@@ -185,7 +185,8 @@ class _PgcReviewPostPanelState
             left: 12,
             right: 12,
             top: 6,
-            bottom: MediaQuery.paddingOf(context).bottom +
+            bottom:
+                MediaQuery.paddingOf(context).bottom +
                 MediaQuery.viewInsetsOf(context).bottom +
                 6,
           ),

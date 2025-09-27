@@ -1,11 +1,10 @@
-import 'package:PiliPlus/pages/setting/models/model.dart';
 import 'package:PiliPlus/pages/setting/models/privacy_settings.dart';
 import 'package:flutter/material.dart';
 
 class PrivacySetting extends StatefulWidget {
-  const PrivacySetting({super.key, this.showAppBar});
+  const PrivacySetting({super.key, this.showAppBar = true});
 
-  final bool? showAppBar;
+  final bool showAppBar;
 
   @override
   State<PrivacySetting> createState() => _PrivacySettingState();
@@ -16,12 +15,16 @@ class _PrivacySettingState extends State<PrivacySetting> {
 
   @override
   Widget build(BuildContext context) {
+    final showAppBar = widget.showAppBar;
+    final padding = MediaQuery.viewPaddingOf(context);
     return Scaffold(
-      appBar:
-          widget.showAppBar == false ? null : AppBar(title: const Text('隐私设置')),
+      resizeToAvoidBottomInset: false,
+      appBar: showAppBar ? AppBar(title: const Text('隐私设置')) : null,
       body: ListView(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.paddingOf(context).bottom + 80,
+          left: showAppBar ? padding.left : 0,
+          right: showAppBar ? padding.right : 0,
+          bottom: padding.bottom + 100,
         ),
         children: settings.map((item) => item.widget).toList(),
       ),

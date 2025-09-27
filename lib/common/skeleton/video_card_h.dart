@@ -19,15 +19,11 @@ class VideoCardHSkeleton extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: StyleString.aspectRatio,
-              child: LayoutBuilder(
-                builder: (context, boxConstraints) {
-                  return DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: StyleString.mdRadius,
-                    ),
-                  );
-                },
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: StyleString.mdRadius,
+                ),
               ),
             ),
             Expanded(
@@ -68,7 +64,7 @@ class VideoCardHSkeleton extends StatelessWidget {
                           height: 13,
                         ),
                       ],
-                    )
+                    ),
                   ],
                 ),
               ),

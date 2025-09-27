@@ -4,6 +4,7 @@ import 'package:PiliPlus/pages/article_list/view.dart';
 import 'package:PiliPlus/pages/blacklist/view.dart';
 import 'package:PiliPlus/pages/danmaku_block/view.dart';
 import 'package:PiliPlus/pages/dynamics/view.dart';
+import 'package:PiliPlus/pages/dynamics_create_vote/view.dart';
 import 'package:PiliPlus/pages/dynamics_detail/view.dart';
 import 'package:PiliPlus/pages/dynamics_topic/view.dart';
 import 'package:PiliPlus/pages/dynamics_topic_rcmd/view.dart';
@@ -25,7 +26,6 @@ import 'package:PiliPlus/pages/live_room/view.dart';
 import 'package:PiliPlus/pages/login/view.dart';
 import 'package:PiliPlus/pages/main/view.dart';
 import 'package:PiliPlus/pages/match_info/view.dart';
-import 'package:PiliPlus/pages/media/view.dart';
 import 'package:PiliPlus/pages/member/view.dart';
 import 'package:PiliPlus/pages/member_dynamics/view.dart';
 import 'package:PiliPlus/pages/member_profile/view.dart';
@@ -36,6 +36,9 @@ import 'package:PiliPlus/pages/msg_feed_top/like_detail/view.dart';
 import 'package:PiliPlus/pages/msg_feed_top/like_me/view.dart';
 import 'package:PiliPlus/pages/msg_feed_top/reply_me/view.dart';
 import 'package:PiliPlus/pages/msg_feed_top/sys_msg/view.dart';
+import 'package:PiliPlus/pages/music/view.dart';
+import 'package:PiliPlus/pages/popular_precious/view.dart';
+import 'package:PiliPlus/pages/popular_series/view.dart';
 import 'package:PiliPlus/pages/search/view.dart';
 import 'package:PiliPlus/pages/search_result/view.dart';
 import 'package:PiliPlus/pages/search_trending/view.dart';
@@ -80,8 +83,6 @@ class Routes {
     // 设置
     CustomGetPage(name: '/setting', page: () => const SettingPage()),
     //
-    CustomGetPage(name: '/media', page: () => const MediaPage()),
-    //
     CustomGetPage(name: '/fav', page: () => const FavPage()),
     //
     CustomGetPage(name: '/favDetail', page: () => const FavDetailPage()),
@@ -97,7 +98,9 @@ class Routes {
     CustomGetPage(name: '/dynamics', page: () => const DynamicsPage()),
     // 动态详情
     CustomGetPage(
-        name: '/dynamicDetail', page: () => const DynamicDetailPage()),
+      name: '/dynamicDetail',
+      page: () => const DynamicDetailPage(),
+    ),
     // 关注
     CustomGetPage(name: '/follow', page: () => const FollowPage()),
     // 粉丝
@@ -109,7 +112,9 @@ class Routes {
     CustomGetPage(name: '/memberSearch', page: () => const MemberSearchPage()),
     // 推荐流设置
     CustomGetPage(
-        name: '/recommendSetting', page: () => const RecommendSetting()),
+      name: '/recommendSetting',
+      page: () => const RecommendSetting(),
+    ),
     // 音视频设置
     CustomGetPage(name: '/videoSetting', page: () => const VideoSetting()),
     // 播放器设置
@@ -124,28 +129,36 @@ class Routes {
     CustomGetPage(name: '/blackListPage', page: () => const BlackListPage()),
     CustomGetPage(name: '/colorSetting', page: () => const ColorSelectPage()),
     CustomGetPage(
-        name: '/fontSizeSetting', page: () => const FontSizeSelectPage()),
+      name: '/fontSizeSetting',
+      page: () => const FontSizeSelectPage(),
+    ),
     // 屏幕帧率
     CustomGetPage(
-        name: '/displayModeSetting', page: () => const SetDisplayMode()),
+      name: '/displayModeSetting',
+      page: () => const SetDisplayMode(),
+    ),
     // 关于
     CustomGetPage(name: '/about', page: () => const AboutPage()),
     //
     CustomGetPage(name: '/articlePage', page: () => const ArticlePage()),
-    // 历史记录搜索
 
+    // 历史记录搜索
     CustomGetPage(name: '/playSpeedSet', page: () => const PlaySpeedPage()),
     // 收藏搜索
     CustomGetPage(name: '/favSearch', page: () => const FavSearchPage()),
     CustomGetPage(
-        name: '/historySearch', page: () => const HistorySearchPage()),
+      name: '/historySearch',
+      page: () => const HistorySearchPage(),
+    ),
     CustomGetPage(name: '/laterSearch', page: () => const LaterSearchPage()),
     CustomGetPage(name: '/followSearch', page: () => const FollowSearchPage()),
     // 消息页面
     CustomGetPage(name: '/whisper', page: () => const WhisperPage()),
     // 私信详情
     CustomGetPage(
-        name: '/whisperDetail', page: () => const WhisperDetailPage()),
+      name: '/whisperDetail',
+      page: () => const WhisperDetailPage(),
+    ),
     // 回复我的
     CustomGetPage(name: '/replyMe', page: () => const ReplyMePage()),
     // @我的
@@ -158,7 +171,9 @@ class Routes {
     CustomGetPage(name: '/loginPage', page: () => const LoginPage()),
     // 用户动态
     CustomGetPage(
-        name: '/memberDynamics', page: () => const MemberDynamicsPage()),
+      name: '/memberDynamics',
+      page: () => const MemberDynamicsPage(),
+    ),
     // 日志
     CustomGetPage(name: '/logs', page: () => const LogsPage()),
     // 订阅
@@ -171,11 +186,17 @@ class Routes {
     CustomGetPage(name: '/createFav', page: () => const CreateFavPage()),
     CustomGetPage(name: '/editProfile', page: () => const EditProfilePage()),
     CustomGetPage(
-        name: '/settingsSearch', page: () => const SettingsSearchPage()),
+      name: '/settingsSearch',
+      page: () => const SettingsSearchPage(),
+    ),
     CustomGetPage(
-        name: '/webdavSetting', page: () => const WebDavSettingPage()),
+      name: '/webdavSetting',
+      page: () => const WebDavSettingPage(),
+    ),
     CustomGetPage(
-        name: '/searchTrending', page: () => const SearchTrendingPage()),
+      name: '/searchTrending',
+      page: () => const SearchTrendingPage(),
+    ),
     CustomGetPage(name: '/dynTopic', page: () => const DynTopicPage()),
     CustomGetPage(name: '/articleList', page: () => const ArticleListPage()),
     CustomGetPage(name: '/barSetting', page: () => const BarSetPage()),
@@ -185,7 +206,19 @@ class Routes {
     CustomGetPage(name: '/matchInfo', page: () => const MatchInfoPage()),
     CustomGetPage(name: '/msgLikeDetail', page: () => const LikeDetailPage()),
     CustomGetPage(
-        name: '/liveDmBlockPage', page: () => const LiveDmBlockPage()),
+      name: '/liveDmBlockPage',
+      page: () => const LiveDmBlockPage(),
+    ),
+    CustomGetPage(name: '/createVote', page: () => const CreateVotePage()),
+    CustomGetPage(name: '/musicDetail', page: () => const MusicDetailPage()),
+    CustomGetPage(
+      name: '/popularSeries',
+      page: () => const PopularSeriesPage(),
+    ),
+    CustomGetPage(
+      name: '/popularPrecious',
+      page: () => const PopularPreciousPage(),
+    ),
   ];
 }
 
@@ -196,11 +229,11 @@ class CustomGetPage extends GetPage<dynamic> {
     bool fullscreen = false,
     super.transitionDuration,
   }) : super(
-          curve: Curves.linear,
-          transition: pageTransition,
-          showCupertinoParallax: false,
-          popGesture: false,
-          fullscreenDialog: fullscreen,
-        );
+         curve: Curves.linear,
+         transition: pageTransition,
+         showCupertinoParallax: false,
+         popGesture: false,
+         fullscreenDialog: fullscreen,
+       );
   static Transition pageTransition = Transition.values[Pref.pageTransition];
 }

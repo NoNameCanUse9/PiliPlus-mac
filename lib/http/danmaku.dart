@@ -18,7 +18,7 @@ class DanmakuHttp {
     int? fontsize, // 弹幕字号（默认25）
     int? pool, // 弹幕池选择（0：普通池 1：字幕池 2：特殊池（代码/BAS弹幕）默认普通池，0）
     //int? rnd,// 当前时间戳*1000000（若无此项，则发送弹幕冷却时间限制为90s；若有此项，则发送弹幕冷却时间限制为5s）
-    bool? colorful, //60001：专属渐变彩色（需要会员）
+    bool colorful = false, //60001：专属渐变彩色（需要会员）
     int? checkboxType, //是否带 UP 身份标识（0：普通；4：带有标识）
     // String? csrf,//CSRF Token（位于 Cookie）	Cookie 方式必要
     // String? access_key,//	APP 登录 Token		APP 方式必要
@@ -27,7 +27,7 @@ class DanmakuHttp {
     // assert(aid != null || bvid != null);
     // assert(csrf != null || access_key != null);
     // 构建参数对象
-    var params = <String, dynamic>{
+    var data = <String, dynamic>{
       'type': type,
       'oid': oid,
       'msg': msg,
@@ -35,11 +35,11 @@ class DanmakuHttp {
       //'aid': aid,
       'bvid': bvid,
       'progress': progress,
-      'color': colorful == true ? 16777215 : color,
+      'color': colorful ? 16777215 : color,
       'fontsize': fontsize,
       'pool': pool,
       'rnd': DateTime.now().microsecondsSinceEpoch,
-      'colorful': colorful == true ? 60001 : null,
+      'colorful': colorful ? 60001 : null,
       'checkbox_type': checkboxType,
       'csrf': Accounts.main.csrf,
       // 'access_key': access_key,
@@ -47,10 +47,8 @@ class DanmakuHttp {
 
     var response = await Request().post(
       Api.shootDanmaku,
-      data: params,
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-      ),
+      data: data,
+      options: Options(contentType: Headers.formUrlEncodedContentType),
     );
     if (response.statusCode != 200) {
       return {

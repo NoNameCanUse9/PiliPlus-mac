@@ -1,10 +1,13 @@
 import 'dart:convert';
 
+import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/pair.dart';
+import 'package:PiliPlus/utils/context_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide ContextExtensionss;
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
 class WebDav {
@@ -25,19 +28,20 @@ class WebDav {
     if (!_webdavDirectory.endsWith('/')) {
       _webdavDirectory += '/';
     }
-    _webdavDirectory += 'PiliPlus';
+    _webdavDirectory += Constants.appName;
 
     try {
       _client = null;
-      final client = webdav.newClient(
-        webDavUri,
-        user: webDavUsername,
-        password: webDavPassword,
-      )
-        ..setHeaders({'accept-charset': 'utf-8'})
-        ..setConnectTimeout(4000)
-        ..setReceiveTimeout(4000)
-        ..setSendTimeout(4000);
+      final client =
+          webdav.newClient(
+              webDavUri,
+              user: webDavUsername,
+              password: webDavPassword,
+            )
+            ..setHeaders({'accept-charset': 'utf-8'})
+            ..setConnectTimeout(4000)
+            ..setReceiveTimeout(4000)
+            ..setSendTimeout(4000);
 
       await client.mkdirAll(_webdavDirectory);
 
@@ -49,9 +53,12 @@ class WebDav {
   }
 
   String _getFileName() {
-    return Get.context!.isTablet
-        ? 'piliplus_settings_pad.json'
-        : 'piliplus_settings_phone.json';
+    final type = Utils.isDesktop
+        ? 'desktop'
+        : Get.context!.isTablet
+        ? 'pad'
+        : 'phone';
+    return 'piliplus_settings_$type.json';
   }
 
   Future<void> backup() async {

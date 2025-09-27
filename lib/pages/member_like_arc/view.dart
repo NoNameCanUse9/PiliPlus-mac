@@ -1,6 +1,7 @@
 import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/skeleton/video_card_v.dart';
 import 'package:PiliPlus/common/widgets/loading_widget/http_error.dart';
+import 'package:PiliPlus/common/widgets/refresh_indicator.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/models_new/member/coin_like_arc/item.dart';
 import 'package:PiliPlus/pages/member_coin_arc/widgets/item.dart';
@@ -35,22 +36,25 @@ class _MemberLikeArcPageState extends State<MemberLikeArcPage> {
 
   @override
   Widget build(BuildContext context) {
+    final padding = MediaQuery.viewPaddingOf(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Text(
-            '${widget.mid == accountService.mid ? '我' : '${widget.name}'}的推荐'),
+          '${widget.mid == accountService.mid ? '我' : '${widget.name}'}的推荐',
+        ),
       ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
+      body: refreshIndicator(
+        onRefresh: _ctr.onRefresh,
         child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverPadding(
               padding: EdgeInsets.only(
-                top: StyleString.safeSpace - 5,
-                left: StyleString.safeSpace,
-                right: StyleString.safeSpace,
-                bottom: MediaQuery.paddingOf(context).bottom + 80,
+                top: 7,
+                left: StyleString.safeSpace + padding.left,
+                right: StyleString.safeSpace + padding.right,
+                bottom: padding.bottom + 100,
               ),
               sliver: Obx(() => _buildBody(_ctr.loadingState.value)),
             ),
@@ -60,43 +64,38 @@ class _MemberLikeArcPageState extends State<MemberLikeArcPage> {
     );
   }
 
+  late final gridDelegate = SliverGridDelegateWithExtentAndRatio(
+    mainAxisSpacing: StyleString.cardSpace,
+    crossAxisSpacing: StyleString.cardSpace,
+    maxCrossAxisExtent: Grid.smallCardWidth,
+    childAspectRatio: StyleString.aspectRatio,
+    mainAxisExtent: MediaQuery.textScalerOf(context).scale(75),
+  );
+
   Widget _buildBody(LoadingState<List<CoinLikeArcItem>?> loadingState) {
     return switch (loadingState) {
       Loading() => SliverGrid.builder(
-          gridDelegate: SliverGridDelegateWithExtentAndRatio(
-            mainAxisSpacing: StyleString.cardSpace,
-            crossAxisSpacing: StyleString.cardSpace,
-            maxCrossAxisExtent: Grid.smallCardWidth,
-            childAspectRatio: StyleString.aspectRatio,
-            mainAxisExtent: MediaQuery.textScalerOf(context).scale(90),
-          ),
-          itemCount: 16,
-          itemBuilder: (context, index) {
-            return const VideoCardVSkeleton();
-          },
-        ),
-      Success(:var response) => response?.isNotEmpty == true
-          ? SliverGrid.builder(
-              gridDelegate: SliverGridDelegateWithExtentAndRatio(
-                mainAxisSpacing: StyleString.cardSpace,
-                crossAxisSpacing: StyleString.cardSpace,
-                maxCrossAxisExtent: Grid.smallCardWidth,
-                childAspectRatio: StyleString.aspectRatio,
-                mainAxisExtent: MediaQuery.textScalerOf(context).scale(75),
-              ),
-              itemCount: response!.length,
-              itemBuilder: (context, index) {
-                if (index == response.length - 1) {
-                  _ctr.onLoadMore();
-                }
-                return MemberCoinLikeItem(item: response[index]);
-              },
-            )
-          : HttpError(onReload: _ctr.onReload),
+        gridDelegate: gridDelegate,
+        itemCount: 16,
+        itemBuilder: (context, index) => const VideoCardVSkeleton(),
+      ),
+      Success(:var response) =>
+        response?.isNotEmpty == true
+            ? SliverGrid.builder(
+                gridDelegate: gridDelegate,
+                itemCount: response!.length,
+                itemBuilder: (context, index) {
+                  if (index == response.length - 1) {
+                    _ctr.onLoadMore();
+                  }
+                  return MemberCoinLikeItem(item: response[index]);
+                },
+              )
+            : HttpError(onReload: _ctr.onReload),
       Error(:var errMsg) => HttpError(
-          errMsg: errMsg,
-          onReload: _ctr.onReload,
-        ),
+        errMsg: errMsg,
+        onReload: _ctr.onReload,
+      ),
     };
   }
 }

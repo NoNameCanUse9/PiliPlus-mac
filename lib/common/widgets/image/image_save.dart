@@ -2,7 +2,8 @@ import 'package:PiliPlus/common/constants.dart';
 import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/user.dart';
-import 'package:PiliPlus/utils/image_util.dart';
+import 'package:PiliPlus/utils/image_utils.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -67,12 +68,12 @@ void imageSaveDialog({
                       color: Colors.black.withValues(alpha: 0.3),
                       shape: BoxShape.circle,
                     ),
-                    child: IconButton(
+                    child: const IconButton(
                       style: ButtonStyle(
-                        padding: WidgetStateProperty.all(EdgeInsets.zero),
+                        padding: WidgetStatePropertyAll(EdgeInsets.zero),
                       ),
                       onPressed: SmartDialog.dismiss,
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.close,
                         size: 18,
                         color: Colors.white,
@@ -107,18 +108,19 @@ void imageSaveDialog({
                       icon: Icons.watch_later_outlined,
                     ),
                   if (cover?.isNotEmpty == true) ...[
-                    iconBtn(
-                      tooltip: '分享',
-                      onPressed: () {
-                        SmartDialog.dismiss();
-                        ImageUtil.onShareImg(cover!);
-                      },
-                      icon: Icons.share,
-                    ),
+                    if (Utils.isMobile)
+                      iconBtn(
+                        tooltip: '分享',
+                        onPressed: () {
+                          SmartDialog.dismiss();
+                          ImageUtils.onShareImg(cover!);
+                        },
+                        icon: Icons.share,
+                      ),
                     iconBtn(
                       tooltip: '保存封面图',
                       onPressed: () async {
-                        bool saveStatus = await ImageUtil.downloadImg(
+                        bool saveStatus = await ImageUtils.downloadImg(
                           context,
                           [cover!],
                         );

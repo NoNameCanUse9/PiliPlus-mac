@@ -12,6 +12,7 @@ class LiveAreaController
   AccountService accountService = Get.find<AccountService>();
 
   late final isEditing = false.obs;
+  late final favInfo = {};
 
   @override
   void onInit() {
@@ -35,17 +36,17 @@ class LiveAreaController
 
   @override
   Future<LoadingState<List<AreaList>?>> customGetData() =>
-      LiveHttp.liveAreaList(isLogin: accountService.isLogin.value);
+      LiveHttp.liveAreaList();
 
   Future<void> queryFavTags() async {
-    favState.value =
-        await LiveHttp.getLiveFavTag(isLogin: accountService.isLogin.value);
+    favState.value = await LiveHttp.getLiveFavTag();
   }
 
   Future<void> setFavTag() async {
     if (favState.value.isSuccess) {
       final res = await LiveHttp.setLiveFavTag(
-          ids: favState.value.data.map((e) => e.id).toList());
+        ids: favState.value.data.map((e) => e.id).join(','),
+      );
       if (res['status']) {
         isEditing.value = !isEditing.value;
         SmartDialog.showToast('设置成功');

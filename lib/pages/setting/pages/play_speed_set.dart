@@ -1,13 +1,16 @@
 import 'dart:math';
 
+import 'package:PiliPlus/common/widgets/list_tile.dart';
+import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/pages/setting/widgets/switch_item.dart';
+import 'package:PiliPlus/utils/context_ext.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide ListTile;
 import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide ContextExtensionss;
 import 'package:hive/hive.dart';
 
 class PlaySpeedPage extends StatefulWidget {
@@ -65,8 +68,9 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
               const SizedBox(height: 12),
               TextField(
                 autofocus: true,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: '自定义倍速',
                   border: OutlineInputBorder(
@@ -85,7 +89,10 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
           actions: [
             TextButton(
               onPressed: Get.back,
-              child: const Text('取消'),
+              child: Text(
+                '取消',
+                style: TextStyle(color: Theme.of(context).colorScheme.outline),
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -103,7 +110,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 }
               },
               child: const Text('确认'),
-            )
+            ),
           ],
         );
       },
@@ -127,8 +134,9 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
             const SizedBox(height: 10),
             ...sheetMenu.map(
               (item) => ListTile(
-                enabled:
-                    enableAutoLongPressSpeed && item.id == 2 ? false : true,
+                enabled: enableAutoLongPressSpeed && item.id == 2
+                    ? false
+                    : true,
                 onTap: () {
                   Get.back();
                   menuAction(index, item.id);
@@ -142,7 +150,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
                 ),
               ),
             ),
-            SizedBox(height: 25 + MediaQuery.paddingOf(context).bottom),
+            SizedBox(height: 25 + MediaQuery.viewPaddingOf(context).bottom),
           ],
         );
       },
@@ -180,6 +188,7 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('倍速设置'),
         actions: [
@@ -194,13 +203,16 @@ class _PlaySpeedPageState extends State<PlaySpeedPage> {
           const SizedBox(width: 16),
         ],
       ),
-      body: SafeArea(
-        bottom: false,
+      body: ViewSafeArea(
         child: ListView(
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.only(left: 14, right: 14, top: 6, bottom: 0),
+              padding: const EdgeInsets.only(
+                left: 14,
+                right: 14,
+                top: 6,
+                bottom: 0,
+              ),
               child: Text(
                 '点击下方按钮设置默认（长按）倍速',
                 style: TextStyle(color: theme.colorScheme.outline),

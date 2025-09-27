@@ -8,12 +8,12 @@ class SlideColorPicker extends StatefulWidget {
     super.key,
     required this.color,
     required this.callback,
-    this.showResetBtn,
+    this.showResetBtn = false,
   });
 
   final Color color;
   final Function(Color? color) callback;
-  final bool? showResetBtn;
+  final bool showResetBtn;
 
   @override
   State<SlideColorPicker> createState() => _SlideColorPickerState();
@@ -40,11 +40,12 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
     super.dispose();
   }
 
-  String get _convert => Color.fromARGB(255, _r, _g, _b)
-      .value
-      .toRadixString(16)
-      .substring(2)
-      .toUpperCase();
+  String get _convert => Color.fromRGBO(
+    _r,
+    _g,
+    _b,
+    1,
+  ).toARGB32().toRadixString(16).substring(2).toUpperCase();
 
   Widget _slider({
     required String title,
@@ -63,7 +64,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
           child: SliderTheme(
             data: SliderTheme.of(context).copyWith(
               trackHeight: 10,
-              thumbSize: WidgetStateProperty.all(const Size(4, 25)),
+              thumbSize: const WidgetStatePropertyAll(Size(4, 25)),
             ),
             child: Slider(
               padding: EdgeInsets.zero,
@@ -113,8 +114,9 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
               onChanged: (value) {
                 _textController.text = value.toUpperCase();
                 if (value.length == 6) {
-                  Color color =
-                      Color(int.tryParse('FF$value', radix: 16) ?? 0xFF000000);
+                  Color color = Color(
+                    int.tryParse('FF$value', radix: 16) ?? 0xFF000000,
+                  );
                   setState(() {
                     _r = color.red;
                     _g = color.green;
@@ -156,7 +158,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
           ),
           Row(
             children: [
-              if (widget.showResetBtn != false) ...[
+              if (widget.showResetBtn) ...[
                 const SizedBox(width: 16),
                 TextButton(
                   onPressed: () {
@@ -185,7 +187,7 @@ class _SlideColorPickerState extends State<SlideColorPicker> {
               ),
               const SizedBox(width: 16),
             ],
-          )
+          ),
         ],
       ),
     );

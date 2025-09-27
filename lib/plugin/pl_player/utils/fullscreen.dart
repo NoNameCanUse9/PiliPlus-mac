@@ -2,30 +2,20 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:PiliPlus/utils/storage_pref.dart';
+import 'package:PiliPlus/utils/utils.dart';
 import 'package:auto_orientation/auto_orientation.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-Timer? screenTimer;
-void stopScreenTimer() {
-  screenTimer?.cancel();
-  screenTimer = null;
-}
-
 //横屏
-Future<void> landScape() async {
-  dynamic document;
+Future<void> landscape({bool inAppFullScreen = false}) async {
   try {
-    if (kIsWeb) {
-      await document.documentElement?.requestFullscreen();
-    } else if (Platform.isAndroid || Platform.isIOS) {
+    if (Utils.isMobile) {
       await AutoOrientation.landscapeAutoMode(forceSensor: true);
-    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
-        'Utils.EnterNativeFullscreen',
-      );
+    } else if (Utils.isDesktop && !inAppFullScreen) {
+      await const MethodChannel(
+        'com.alexmercerind/media_kit_video',
+      ).invokeMethod('Utils.EnterNativeFullscreen');
     }
   } catch (exception, stacktrace) {
     if (kDebugMode) {
@@ -40,10 +30,7 @@ Future<void> verticalScreenForTwoSeconds() async {
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
-  screenTimer = Timer(const Duration(seconds: 2), () {
-    autoScreen();
-    screenTimer = null;
-  });
+  await autoScreen();
 }
 
 //竖屏
@@ -54,8 +41,9 @@ Future<void> verticalScreen() async {
 }
 
 //全向
+bool allowRotateScreen = Pref.allowRotateScreen;
 Future<void> autoScreen() async {
-  if (!Pref.allowRotateScreen) {
+  if (!allowRotateScreen) {
     return;
   }
   await SystemChrome.setPreferredOrientations([
@@ -71,37 +59,41 @@ Future<void> fullAutoModeForceSensor() async {
 }
 
 Future<void> hideStatusBar() async {
+  if (!_showStatusBar) {
+    return;
+  }
+  _showStatusBar = false;
   await SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.immersiveSticky,
   );
 }
 
+bool _showStatusBar = true;
+
 //退出全屏显示
 Future<void> showStatusBar() async {
-  dynamic document;
-  late SystemUiMode mode = SystemUiMode.edgeToEdge;
+  if (_showStatusBar) {
+    return;
+  }
+  _showStatusBar = true;
   try {
-    if (kIsWeb) {
-      document.exitFullscreen();
-    } else if (Platform.isAndroid || Platform.isIOS) {
-      if (Platform.isAndroid &&
-          (await DeviceInfoPlugin().androidInfo).version.sdkInt < 29) {
+    if (Utils.isMobile) {
+      SystemUiMode mode;
+      if (Platform.isAndroid && (await Utils.sdkInt < 29)) {
         mode = SystemUiMode.manual;
+      } else {
+        mode = SystemUiMode.edgeToEdge;
       }
       await SystemChrome.setEnabledSystemUIMode(
         mode,
         overlays: SystemUiOverlay.values,
       );
-    } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
-        'Utils.ExitNativeFullscreen',
-      );
+    } else if (Utils.isDesktop) {
+      await const MethodChannel(
+        'com.alexmercerind/media_kit_video',
+      ).invokeMethod('Utils.ExitNativeFullscreen');
     }
-  } catch (exception, stacktrace) {
-    if (kDebugMode) {
-      debugPrint(exception.toString());
-      debugPrint(stacktrace.toString());
-    }
+  } catch (_) {
+    if (kDebugMode) rethrow;
   }
 }

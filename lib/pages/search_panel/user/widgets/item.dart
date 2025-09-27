@@ -1,6 +1,6 @@
 import 'package:PiliPlus/common/widgets/pendant_avatar.dart';
 import 'package:PiliPlus/models/search/result.dart';
-import 'package:PiliPlus/utils/num_util.dart';
+import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -30,7 +30,7 @@ class SearchUserItem extends StatelessWidget {
               avatar: item.upic,
               size: 42,
               isVip: false,
-              officialType: item.officialVerify?['type'],
+              officialType: item.officialVerify?.type,
               roomId: item.isLive == 1 ? item.roomId : null,
             ),
             const SizedBox(width: 10),
@@ -56,17 +56,16 @@ class SearchUserItem extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  '粉丝：${NumUtil.numFormat(item.fans)}  视频：${NumUtil.numFormat(item.videos)}',
+                  '粉丝：${NumUtils.numFormat(item.fans)}  视频：${NumUtils.numFormat(item.videos)}',
                   style: style,
                 ),
-                if (item.officialVerify?['desc'] != null &&
-                    item.officialVerify?['desc'] != '')
+                if (item.officialVerify?.desc?.isNotEmpty == true)
                   Text(
-                    item.officialVerify?['desc'],
+                    item.officialVerify!.desc!,
                     style: style,
                   ),
               ],
-            )
+            ),
           ],
         ),
       ),

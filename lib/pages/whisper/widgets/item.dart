@@ -7,7 +7,7 @@ import 'package:PiliPlus/grpc/bilibili/app/im/v1.pb.dart'
     show Session, SessionId, SessionPageType, SessionType, UnreadStyle;
 import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/pages/whisper_secondary/view.dart';
-import 'package:PiliPlus/utils/date_util.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/extension.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
@@ -30,14 +30,22 @@ class WhisperSessionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resource =
+        item.sessionInfo.avatar.fallbackLayers.layers.first.resource;
+    final avatar = resource.hasResImage()
+        ? resource.resImage.imageSrc.remote.url
+        : resource.hasResAnimation()
+        ? resource.resAnimation.webpSrc.remote.url
+        : resource.resNativeDraw.drawSrc.remote.url;
     Map? vipInfo = item.sessionInfo.hasVipInfo()
         ? jsonDecode(item.sessionInfo.vipInfo)
         : null;
     final ThemeData theme = Theme.of(context);
     return ListTile(
       tileColor: item.isPinned
-          ? theme.colorScheme.onInverseSurface
-              .withValues(alpha: Get.isDarkMode ? 0.4 : 0.8)
+          ? theme.colorScheme.onInverseSurface.withValues(
+              alpha: Get.isDarkMode ? 0.4 : 0.8,
+            )
           : null,
       onLongPress: () => showDialog(
         context: context,
@@ -100,10 +108,10 @@ class WhisperSessionItem extends StatelessWidget {
             arguments: {
               'talkerId': item.id.privateId.talkerUid.toInt(),
               'name': item.sessionInfo.sessionName,
-              'face': item.sessionInfo.avatar.fallbackLayers.layers.first
-                  .resource.resImage.imageSrc.remote.url,
+              'face': avatar,
               if (item.sessionInfo.avatar.hasMid())
                 'mid': item.sessionInfo.avatar.mid.toInt(),
+              'isLive': item.sessionInfo.isLive,
             },
           );
           return;
@@ -148,23 +156,29 @@ class WhisperSessionItem extends StatelessWidget {
           final pendant = item.sessionInfo.avatar.fallbackLayers.layers
               .getOrNull(1)
               ?.resource;
-          final offcial = item.sessionInfo.avatar.fallbackLayers.layers
-              .lastOrNull?.resource.resImage.imageSrc;
+          final offcial = item
+              .sessionInfo
+              .avatar
+              .fallbackLayers
+              .layers
+              .lastOrNull
+              ?.resource
+              .resImage
+              .imageSrc;
 
           return GestureDetector(
             onTap: item.sessionInfo.avatar.hasMid()
                 ? () =>
-                    Get.toNamed('/member?mid=${item.sessionInfo.avatar.mid}')
+                      Get.toNamed('/member?mid=${item.sessionInfo.avatar.mid}')
                 : null,
             child: PendantAvatar(
               size: 42,
               badgeSize: 14,
-              avatar: item.sessionInfo.avatar.fallbackLayers.layers.first
-                  .resource.resImage.imageSrc.remote.url,
+              avatar: avatar,
               garbPendantImage:
                   pendant?.resImage.imageSrc.remote.hasUrl() == true
-                      ? pendant!.resImage.imageSrc.remote.url
-                      : pendant?.resAnimation.webpSrc.remote.url,
+                  ? pendant!.resImage.imageSrc.remote.url
+                  : pendant?.resAnimation.webpSrc.remote.url,
               isVip: vipInfo?['status'] != null && vipInfo!['status'] > 0,
               officialType: offcial?.hasLocalValue() == true
                   ? switch (offcial!.localValue) {
@@ -191,10 +205,11 @@ class WhisperSessionItem extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 15,
-                      color: vipInfo?['status'] != null &&
+                      color:
+                          vipInfo?['status'] != null &&
                               vipInfo!['status'] > 0 &&
                               vipInfo['type'] == 2
-                          ? context.vipColor
+                          ? theme.colorScheme.vipColor
                           : null,
                     ),
                   ),
@@ -209,13 +224,17 @@ class WhisperSessionItem extends StatelessWidget {
                     text: item.sessionInfo.userLabel.style.borderedLabel.text,
                   ),
                 if (item.sessionInfo.isLive)
-                  Image.asset('assets/images/live/live.gif', height: 15),
+                  Image.asset(
+                    'assets/images/live/live.gif',
+                    height: 15,
+                    filterQuality: FilterQuality.low,
+                  ),
               ],
             ),
           ),
           if (item.hasTimestamp())
             Text(
-              DateUtil.dateFormat((item.timestamp ~/ 1000000).toInt()),
+              DateFormatUtils.dateFormat((item.timestamp ~/ 1000000).toInt()),
               style: TextStyle(
                 fontSize: 12,
                 color: theme.colorScheme.outline,
@@ -230,8 +249,9 @@ class WhisperSessionItem extends StatelessWidget {
               item.msgSummary.rawMsg,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelMedium!
-                  .copyWith(color: theme.colorScheme.outline),
+              style: theme.textTheme.labelMedium!.copyWith(
+                color: theme.colorScheme.outline,
+              ),
             ),
           ),
           if (item.isMuted)
@@ -246,7 +266,7 @@ class WhisperSessionItem extends StatelessWidget {
               label: item.unread.style == UnreadStyle.UNREAD_STYLE_NUMBER
                   ? Text(item.unread.number.toString())
                   : null,
-            )
+            ),
         ],
       ),
     );

@@ -1,12 +1,14 @@
 import 'package:PiliPlus/models_new/video/video_ai_conclusion/model_result.dart';
-import 'package:PiliPlus/pages/common/common_collapse_slide_page.dart';
+import 'package:PiliPlus/pages/common/slide/common_slide_page.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
-import 'package:PiliPlus/utils/duration_util.dart';
+import 'package:PiliPlus/pages/video/introduction/ugc/widgets/selectable_text.dart';
+import 'package:PiliPlus/utils/duration_utils.dart';
+import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-class AiConclusionPanel extends CommonCollapseSlidePage {
+class AiConclusionPanel extends CommonSlidePage {
   final AiConclusionResult item;
 
   const AiConclusionPanel({
@@ -18,7 +20,8 @@ class AiConclusionPanel extends CommonCollapseSlidePage {
   State<AiConclusionPanel> createState() => _AiDetailState();
 }
 
-class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
+class _AiDetailState extends State<AiConclusionPanel>
+    with SingleTickerProviderStateMixin, CommonSlideMixin {
   @override
   Widget buildPage(ThemeData theme) {
     return Material(
@@ -50,17 +53,28 @@ class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
     );
   }
 
+  late Key _key;
+  late bool _isNested;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = PrimaryScrollController.of(context);
+    _isNested = controller is ExtendedNestedScrollController;
+    _key = ValueKey(controller.hashCode);
+  }
+
   @override
   Widget buildList(ThemeData theme) {
-    return CustomScrollView(
-      controller: ScrollController(),
+    final child = CustomScrollView(
+      key: _key,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         if (widget.item.summary?.isNotEmpty == true) ...[
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: SelectableText(
+              child: selectableText(
                 widget.item.summary!,
                 style: const TextStyle(
                   fontSize: 15,
@@ -83,30 +97,30 @@ class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
             padding: EdgeInsets.only(
               left: 14,
               right: 14,
-              bottom: MediaQuery.paddingOf(context).bottom + 80,
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
             ),
             sliver: SliverList.builder(
               itemCount: widget.item.outline!.length,
               itemBuilder: (context, index) {
                 final item = widget.item.outline![index];
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (index != 0) const SizedBox(height: 10),
-                    SelectableText(
-                      item.title!,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        height: 1.5,
+                return SelectionArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (index != 0) const SizedBox(height: 10),
+                      Text(
+                        item.title!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          height: 1.5,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (item.partOutline?.isNotEmpty == true)
-                      ...item.partOutline!.map(
+                      const SizedBox(height: 6),
+                      ...?item.partOutline?.map(
                         (item) => Wrap(
                           children: [
-                            SelectableText.rich(
+                            Text.rich(
                               TextSpan(
                                 style: TextStyle(
                                   fontSize: 14,
@@ -115,8 +129,9 @@ class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
                                 ),
                                 children: [
                                   TextSpan(
-                                    text: DurationUtil.formatDuration(
-                                        item.timestamp),
+                                    text: DurationUtils.formatDuration(
+                                      item.timestamp,
+                                    ),
                                     style: TextStyle(
                                       color: theme.colorScheme.primary,
                                     ),
@@ -124,10 +139,10 @@ class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
                                       ..onTap = () {
                                         try {
                                           Get.find<VideoDetailController>(
-                                                  tag: Get.arguments['heroTag'])
-                                              .plPlayerController
-                                              .seekTo(Duration(
-                                                  seconds: item.timestamp!));
+                                            tag: Get.arguments['heroTag'],
+                                          ).plPlayerController.seekTo(
+                                            Duration(seconds: item.timestamp!),
+                                          );
                                         } catch (_) {}
                                       },
                                   ),
@@ -139,12 +154,20 @@ class _AiDetailState extends CommonCollapseSlidePageState<AiConclusionPanel> {
                           ],
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 );
               },
             ),
           ),
       ],
     );
+    if (_isNested) {
+      return ExtendedVisibilityDetector(
+        uniqueKey: const Key('ai-conclusion'),
+        child: child,
+      );
+    }
+    return child;
   }
 }

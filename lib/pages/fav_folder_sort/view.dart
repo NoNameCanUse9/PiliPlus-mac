@@ -20,19 +20,21 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
   FavController get _favController => widget.favController;
 
   final GlobalKey _key = GlobalKey();
-  late List<FavFolderInfo> sortList =
-      List<FavFolderInfo>.from(_favController.loadingState.value.data!);
+  late List<FavFolderInfo> sortList = List<FavFolderInfo>.from(
+    _favController.loadingState.value.data!,
+  );
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('收藏夹排序'),
         actions: [
           TextButton(
             onPressed: () async {
               var res = await FavHttp.sortFavFolder(
-                sort: sortList.map((item) => item.id).toList(),
+                sort: sortList.map((item) => item.id).join(','),
               );
               if (res['status']) {
                 SmartDialog.showToast('排序完成');
@@ -47,11 +49,7 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
           const SizedBox(width: 16),
         ],
       ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
-        child: _buildBody,
-      ),
+      body: _buildBody,
     );
   }
 
@@ -76,10 +74,10 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
       key: _key,
       onReorder: onReorder,
       physics: const AlwaysScrollableScrollPhysics(),
-      footer: SizedBox(
-        height: MediaQuery.paddingOf(context).bottom + 80,
-      ),
       itemCount: sortList.length,
+      padding:
+          MediaQuery.viewPaddingOf(context).copyWith(top: 0) +
+          const EdgeInsets.only(bottom: 100),
       itemBuilder: (context, index) {
         final item = sortList[index];
         final key = item.id.toString();
@@ -89,8 +87,9 @@ class _FavFolderSortPageState extends State<FavFolderSortPage> {
           child: FavVideoItem(
             heroTag: key,
             item: item,
-            onLongPress:
-                index == 0 ? () => SmartDialog.showToast('默认收藏夹不支持排序') : null,
+            onLongPress: index == 0
+                ? () => SmartDialog.showToast('默认收藏夹不支持排序')
+                : null,
           ),
         );
       },

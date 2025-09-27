@@ -22,6 +22,8 @@ class Api {
   // https://api.bilibili.com/pgc/player/web/v2/playurl?cid=104236640&bvid=BV13t411n7ex
   static const String pgcUrl = '/pgc/player/web/v2/playurl';
 
+  static const String pugvUrl = '/pugv/player/web/playurl';
+
   // 字幕
   // aid, cid
   static const String playInfo = '/x/player/wbi/v2';
@@ -102,11 +104,9 @@ class Api {
   // csrf	str	CSRF Token（位于cookie）	Cookie方式必要
   // https://api.bilibili.com/medialist/gateway/coll/resource/deal
   // https://api.bilibili.com/x/v3/fav/resource/deal
-  static const String favVideo = '/x/v3/fav/resource/deal';
+  static const String favVideo = '/x/v3/fav/resource/batch-deal';
 
-  // static const String favBangumi = '/x/v3/fav/resource/batch-deal';
-
-  static const String delFav = '/x/v3/fav/resource/batch-del';
+  static const String unfavAll = '/x/v3/fav/resource/unfav-all';
 
   static const String copyFav = '/x/v3/fav/resource/copy';
 
@@ -134,9 +134,9 @@ class Api {
   // aid	num	稿件avid	必要（可选）	avid与bvid任选一个
   // bvid	str	稿件bvid	必要（可选）	avid与bvid任选一个
   // csrf	str	CSRF Token（位于cookie）	必要
-  static const String oneThree = '/x/web-interface/archive/like/triple';
+  static const String ugcTriple = '/x/web-interface/archive/like/triple';
 
-  static const String triple = '/pgc/season/episode/like/triple';
+  static const String pgcTriple = '/pgc/season/episode/like/triple';
 
   // 获取指定用户创建的所有收藏夹信息
   // 该接口也能查询目标内容id存在于那些收藏夹中
@@ -281,6 +281,8 @@ class Api {
   // 番剧/剧集明细
   static const String pgcInfo = '/pgc/view/web/season';
 
+  static const String pugvInfo = '/pugv/view/web/season';
+
   // https://api.bilibili.com/pgc/season/episode/web/info?ep_id=12345678
   static const String episodeInfo = '/pgc/season/episode/web/info';
 
@@ -395,27 +397,6 @@ class Api {
   static const String pgcDel = '/pgc/web/follow/del';
 
   static const String pgcUpdate = '/pgc/web/follow/status/update';
-
-  // 番剧列表
-  // https://api.bilibili.com/pgc/season/index/result?
-  // st=1&
-  // order=3
-  // season_version=-1  全部-1 正片1 电影2 其他3
-  // spoken_language_type=-1  全部-1 原生1 中文配音2
-  // area=-1&
-  // is_finish=-1&
-  // copyright=-1&
-  // season_status=-1&
-  // season_month=-1&
-  // year=-1&
-  // style_id=-1&
-  // sort=0&
-  // page=1&
-  // season_type=1&
-  // pagesize=20&
-  // type=1
-  static const String pgcIndex =
-      '/pgc/season/index/result?st=1&order=3&season_version=-1&spoken_language_type=-1&area=-1&is_finish=-1&copyright=-1&season_status=-1&season_month=-1&year=-1&style_id=-1&sort=0&season_type=1&pagesize=20&type=1';
 
   // 我的追番/追剧 ?type=1&pn=1&ps=15
   static const String favPgc = '/x/space/bangumi/follow/list';
@@ -775,6 +756,8 @@ class Api {
 
   static const String setTopDyn = '/x/dynamic/feed/space/set_top';
 
+  static const String rmTopDyn = '/x/dynamic/feed/space/rm_top';
+
   static const String searchRecommend =
       '${HttpString.appBaseUrl}/x/v2/search/recommend';
 
@@ -846,6 +829,12 @@ class Api {
 
   static const String dynReserve = '/x/dynamic/feed/reserve/click';
 
+  static const String favPugv = '/pugv/app/web/favorite/page';
+
+  static const String addFavPugv = '/pugv/app/web/favorite/add';
+
+  static const String delFavPugv = '/pugv/app/web/favorite/del';
+
   static const String favTopicList = '/x/topic/web/fav/list';
 
   static const String addFavTopic = '/x/topic/fav/sub/add';
@@ -911,4 +900,55 @@ class Api {
 
   static const String liveShieldUser =
       '${HttpString.liveBaseUrl}/liveact/shield_user';
+
+  static const String spaceComic = '${HttpString.appBaseUrl}/x/v2/space/comic';
+
+  static const String spaceAudio = '/audio/music-service/web/song/upper';
+
+  static const String spaceCheese = '/pugv/app/web/season/page';
+
+  static const String dynMention = '/x/polymer/web-dynamic/v1/mention/search';
+
+  static const String createVote = '/x/vote/create';
+
+  static const String updateVote = '/x/vote/update';
+
+  static const String createReserve = '/x/new-reserve/up/reserve/create';
+
+  static const String updateReserve = '/x/new-reserve/up/reserve/update';
+
+  static const String reserveInfo = '/x/new-reserve/up/reserve/info';
+
+  static const String loginLog = '/x/member/web/login/log';
+
+  static const String expLog = '/x/member/web/exp/log';
+
+  static const String moralLog = '/x/member/web/moral/log';
+
+  static const String liveLikeReport =
+      '${HttpString.liveBaseUrl}/xlive/app-ucenter/v1/like_info_v3/like/likeReportV3';
+
+  static const String loginDevices =
+      '${HttpString.passBaseUrl}/x/safecenter/user_login_devices';
+
+  static const String bgmDetail = '/x/copyright-music-publicity/bgm/detail';
+
+  static const String wishUpdate =
+      '/x/copyright-music-publicity/bgm/wish/update';
+
+  static const String bgmRecommend =
+      '/x/copyright-music-publicity/bgm/recommend_list';
+
+  static const String spaceShop =
+      '${HttpString.mallBaseUrl}/community-hub/small_shop/feed/tab/item';
+
+  static const String superChatMsg =
+      '${HttpString.liveBaseUrl}/av/v1/SuperChat/getMessageList';
+
+  static const String popularSeriesOne = '/x/web-interface/popular/series/one';
+
+  static const String popularSeriesList =
+      '/x/web-interface/popular/series/list';
+
+  static const String popularPrecious = '/x/web-interface/popular/precious';
 }

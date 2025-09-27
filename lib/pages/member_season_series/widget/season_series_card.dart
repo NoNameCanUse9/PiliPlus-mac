@@ -3,7 +3,7 @@ import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/image/image_save.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/models_new/space/space_season_series/season.dart';
-import 'package:PiliPlus/utils/date_util.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:flutter/material.dart';
 
 class SeasonSeriesCard extends StatelessWidget {
@@ -36,8 +36,7 @@ class SeasonSeriesCard extends StatelessWidget {
               AspectRatio(
                 aspectRatio: StyleString.aspectRatio,
                 child: LayoutBuilder(
-                  builder:
-                      (BuildContext context, BoxConstraints boxConstraints) {
+                  builder: (BuildContext context, BoxConstraints boxConstraints) {
                     final double maxWidth = boxConstraints.maxWidth;
                     final double maxHeight = boxConstraints.maxHeight;
                     return Stack(
@@ -87,7 +86,7 @@ class SeasonSeriesCard extends StatelessWidget {
           ),
           const Spacer(),
           Text(
-            DateUtil.dateFormat(item.meta!.ptime),
+            DateFormatUtils.dateFormat(item.meta!.ptime),
             maxLines: 1,
             style: TextStyle(
               fontSize: 12,

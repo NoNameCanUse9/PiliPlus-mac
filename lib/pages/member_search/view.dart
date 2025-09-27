@@ -1,4 +1,5 @@
 import 'package:PiliPlus/common/widgets/scroll_physics.dart';
+import 'package:PiliPlus/common/widgets/view_safe_area.dart';
 import 'package:PiliPlus/models/common/member/search_type.dart';
 import 'package:PiliPlus/pages/member_search/child/view.dart';
 import 'package:PiliPlus/pages/member_search/controller.dart';
@@ -14,8 +15,10 @@ class MemberSearchPage extends StatefulWidget {
 }
 
 class _MemberSearchPageState extends State<MemberSearchPage> {
-  final _controller =
-      Get.put(MemberSearchController(), tag: Utils.generateRandomString(8));
+  final _controller = Get.put(
+    MemberSearchController(),
+    tag: Utils.generateRandomString(8),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +31,7 @@ class _MemberSearchPageState extends State<MemberSearchPage> {
             onPressed: _controller.submit,
             icon: const Icon(Icons.search, size: 22),
           ),
-          const SizedBox(width: 10)
+          const SizedBox(width: 10),
         ],
         title: TextField(
           autofocus: true,
@@ -53,9 +56,7 @@ class _MemberSearchPageState extends State<MemberSearchPage> {
           },
         ),
       ),
-      body: SafeArea(
-        top: false,
-        bottom: false,
+      body: ViewSafeArea(
         child: Stack(
           clipBehavior: Clip.none,
           children: [

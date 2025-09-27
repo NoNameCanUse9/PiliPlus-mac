@@ -126,11 +126,17 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
     _warpUnderwayCount -= 1;
   }
 
-  Future<void> _animateToPage(int page,
-      {required Duration duration, required Curve curve}) async {
+  Future<void> _animateToPage(
+    int page, {
+    required Duration duration,
+    required Curve curve,
+  }) async {
     _warpUnderwayCount += 1;
-    await _pageController!
-        .animateToPage(page, duration: duration, curve: curve);
+    await _pageController!.animateToPage(
+      page,
+      duration: duration,
+      curve: curve,
+    );
     _warpUnderwayCount -= 1;
   }
 
@@ -225,13 +231,14 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
     if (duration == Duration.zero) {
       _jumpToPage(_currentIndex!);
     } else {
-      await _animateToPage(_currentIndex!,
-          duration: duration, curve: Curves.ease);
+      await _animateToPage(
+        _currentIndex!,
+        duration: duration,
+        curve: Curves.ease,
+      );
     }
     if (mounted) {
-      setState(() {
-        _updateChildren();
-      });
+      setState(_updateChildren);
     }
     return Future<void>.value();
   }
@@ -263,20 +270,24 @@ class _CustomTabBarViewState extends State<CustomTabBarView> {
     if (duration == Duration.zero) {
       _jumpToPage(_currentIndex!);
     } else {
-      await _animateToPage(_currentIndex!,
-          duration: duration, curve: Curves.ease);
+      await _animateToPage(
+        _currentIndex!,
+        duration: duration,
+        curve: Curves.ease,
+      );
     }
 
     if (mounted) {
-      setState(() {
-        _updateChildren();
-      });
+      setState(_updateChildren);
     }
   }
 
   void _syncControllerOffset() {
-    _controller!.offset =
-        clampDouble(_pageController!.page! - _controller!.index, -1.0, 1.0);
+    _controller!.offset = clampDouble(
+      _pageController!.page! - _controller!.index,
+      -1.0,
+      1.0,
+    );
   }
 
   // Called when the PageView scrolls

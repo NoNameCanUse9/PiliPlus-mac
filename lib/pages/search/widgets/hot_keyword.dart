@@ -1,6 +1,6 @@
 import 'package:PiliPlus/models_new/search/search_trending/list.dart';
 import 'package:PiliPlus/utils/extension.dart';
-import 'package:PiliPlus/utils/image_util.dart';
+import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -8,17 +8,19 @@ class HotKeyword extends StatelessWidget {
   final double width;
   final List<SearchTrendingItemModel> hotSearchList;
   final Function? onClick;
-  final bool showMore;
   const HotKeyword({
     super.key,
     required double width,
     required this.hotSearchList,
     this.onClick,
-    this.showMore = true,
   }) : width = width / 2 - 4;
 
   @override
   Widget build(BuildContext context) {
+    late final style = TextStyle(
+      fontSize: 14,
+      color: Theme.of(context).colorScheme.outline,
+    );
     return Wrap(
       runSpacing: 0.4,
       spacing: 5.0,
@@ -53,7 +55,7 @@ class HotKeyword extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.only(left: 4),
                             child: CachedNetworkImage(
-                              imageUrl: ImageUtil.thumbnailUrl(i.icon!),
+                              imageUrl: ImageUtils.thumbnailUrl(i.icon!),
                               height: 15,
                             ),
                           )
@@ -66,6 +68,8 @@ class HotKeyword extends StatelessWidget {
                               height: 15,
                             ),
                           )
+                        else if (i.recommendReason?.isNotEmpty == true)
+                          Text(i.recommendReason!, style: style),
                       ],
                     ),
                   ),

@@ -28,7 +28,7 @@ class DynamicsTabController
   @override
   Future<void> onRefresh() {
     if (dynamicsType == DynamicsTabType.all) {
-      mainController.setCount();
+      mainController.setDynCount();
     }
     offset = '';
     return super.onRefresh();
@@ -61,15 +61,6 @@ class DynamicsTabController
     }
   }
 
-  Future<void> onSetTop(bool isTop, dynamic dynamicId) async {
-    var res = await DynamicsHttp.setTop(dynamicId: dynamicId);
-    if (res['status']) {
-      SmartDialog.showToast('${isTop ? '取消' : ''}置顶成功');
-    } else {
-      SmartDialog.showToast(res['msg']);
-    }
-  }
-
   @override
   Future<void> onReload() {
     scrollController.jumpToTop();
@@ -82,5 +73,18 @@ class DynamicsTabController
         ..value.data!.removeAt(index)
         ..refresh();
     }
+  }
+
+  void onUnfold(DynamicItemModel item, int index) {
+    try {
+      final list = loadingState.value.data!;
+      final ids = item.modules.moduleFold!.ids!;
+      final flag = index + ids.length + 1;
+      for (int i = index + 1; i < flag; i++) {
+        list[i].visible = true;
+      }
+      item.modules.moduleFold = null;
+      loadingState.refresh();
+    } catch (_) {}
   }
 }

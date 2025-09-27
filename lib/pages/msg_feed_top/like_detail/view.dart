@@ -8,7 +8,7 @@ import 'package:PiliPlus/models_new/msg/msg_like_detail/card.dart';
 import 'package:PiliPlus/models_new/msg/msg_like_detail/item.dart';
 import 'package:PiliPlus/pages/msg_feed_top/like_detail/controller.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
-import 'package:PiliPlus/utils/date_util.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -21,13 +21,16 @@ class LikeDetailPage extends StatefulWidget {
 }
 
 class _LikeDetailPageState extends State<LikeDetailPage> {
-  final LikeDetailController _controller =
-      Get.put(LikeDetailController(), tag: Utils.generateRandomString(8));
+  final LikeDetailController _controller = Get.put(
+    LikeDetailController(),
+    tag: Utils.generateRandomString(8),
+  );
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(title: const Text('点赞详情')),
       body: refreshIndicator(
         onRefresh: _controller.onRefresh,
@@ -36,9 +39,11 @@ class _LikeDetailPageState extends State<LikeDetailPage> {
           slivers: [
             SliverPadding(
               padding: EdgeInsets.only(
-                  bottom: MediaQuery.paddingOf(context).bottom + 80),
-              sliver:
-                  Obx(() => _buildBody(theme, _controller.loadingState.value)),
+                bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
+              ),
+              sliver: Obx(
+                () => _buildBody(theme, _controller.loadingState.value),
+              ),
             ),
           ],
         ),
@@ -47,7 +52,9 @@ class _LikeDetailPageState extends State<LikeDetailPage> {
   }
 
   Widget _buildBody(
-      ThemeData theme, LoadingState<List<MsgLikeDetailItem>?> loadingState) {
+    ThemeData theme,
+    LoadingState<List<MsgLikeDetailItem>?> loadingState,
+  ) {
     late final divider = Divider(
       indent: 72,
       endIndent: 20,
@@ -56,38 +63,36 @@ class _LikeDetailPageState extends State<LikeDetailPage> {
     );
     return switch (loadingState) {
       Loading() => SliverList.builder(
-          itemCount: 12,
-          itemBuilder: (context, index) {
-            return const MsgFeedTopSkeleton();
-          },
-        ),
+        itemCount: 12,
+        itemBuilder: (context, index) => const MsgFeedTopSkeleton(),
+      ),
       Success(:var response) => SliverMainAxisGroup(
-          slivers: [
-            if (_controller.card != null) ...[
-              _buildCard(_controller.card!),
-              SliverToBoxAdapter(
-                child: Divider(
-                  height: 1,
-                  color: Colors.grey.withValues(alpha: 0.1),
-                ),
+        slivers: [
+          if (_controller.card != null) ...[
+            _buildCard(_controller.card!),
+            SliverToBoxAdapter(
+              child: Divider(
+                height: 1,
+                color: Colors.grey.withValues(alpha: 0.1),
               ),
-            ],
-            SliverList.separated(
-              itemCount: response!.length,
-              itemBuilder: (context, index) {
-                if (index == response.length - 1) {
-                  _controller.onLoadMore();
-                }
-                return _buildItem(theme, response[index]);
-              },
-              separatorBuilder: (context, index) => divider,
             ),
           ],
-        ),
+          SliverList.separated(
+            itemCount: response!.length,
+            itemBuilder: (context, index) {
+              if (index == response.length - 1) {
+                _controller.onLoadMore();
+              }
+              return _buildItem(theme, response[index]);
+            },
+            separatorBuilder: (context, index) => divider,
+          ),
+        ],
+      ),
       Error(:var errMsg) => HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        ),
+        errMsg: errMsg,
+        onReload: _controller.onReload,
+      ),
     };
   }
 
@@ -118,8 +123,10 @@ class _LikeDetailPageState extends State<LikeDetailPage> {
           children: [
             TextSpan(
               text: "${item.user!.nickname}",
-              style: theme.textTheme.titleSmall!
-                  .copyWith(height: 1.5, color: theme.colorScheme.primary),
+              style: theme.textTheme.titleSmall!.copyWith(
+                height: 1.5,
+                color: theme.colorScheme.primary,
+              ),
             ),
             TextSpan(
               text: " 赞了我",
@@ -134,7 +141,7 @@ class _LikeDetailPageState extends State<LikeDetailPage> {
         overflow: TextOverflow.ellipsis,
       ),
       subtitle: Text(
-        DateUtil.dateFormat(item.likeTime),
+        DateFormatUtils.dateFormat(item.likeTime),
         style: theme.textTheme.bodyMedium!.copyWith(
           fontSize: 13,
           color: theme.colorScheme.outline,

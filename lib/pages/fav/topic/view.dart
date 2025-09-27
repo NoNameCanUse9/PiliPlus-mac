@@ -38,37 +38,42 @@ class _FavTopicPageState extends State<FavTopicPage>
               left: StyleString.safeSpace,
               right: StyleString.safeSpace,
               top: StyleString.safeSpace,
-              bottom: MediaQuery.paddingOf(context).bottom + 80,
+              bottom: MediaQuery.viewPaddingOf(context).bottom + 100,
             ),
-            sliver:
-                Obx(() => _buildBody(theme, _controller.loadingState.value)),
+            sliver: Obx(
+              () => _buildBody(theme, _controller.loadingState.value),
+            ),
           ),
         ],
       ),
     );
   }
 
+  late final gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+    mainAxisSpacing: 12,
+    crossAxisSpacing: 12,
+    maxCrossAxisExtent: Grid.smallCardWidth,
+    mainAxisExtent: MediaQuery.textScalerOf(context).scale(30),
+  );
+
   Widget _buildBody(
-      ThemeData theme, LoadingState<List<FavTopicItem>?> loadingState) {
+    ThemeData theme,
+    LoadingState<List<FavTopicItem>?> loadingState,
+  ) {
     return switch (loadingState) {
       Loading() => const SliverToBoxAdapter(
-          child: SizedBox(
-            height: 125,
-            child: Center(
-              child: CircularProgressIndicator(),
-            ),
+        child: SizedBox(
+          height: 125,
+          child: Center(
+            child: CircularProgressIndicator(),
           ),
         ),
-      Success(:var response) => response?.isNotEmpty == true
-          ? SliverGrid(
-              gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                maxCrossAxisExtent: Grid.smallCardWidth,
-                mainAxisExtent: MediaQuery.textScalerOf(context).scale(30),
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
+      ),
+      Success(:var response) =>
+        response?.isNotEmpty == true
+            ? SliverGrid.builder(
+                gridDelegate: gridDelegate,
+                itemBuilder: (context, index) {
                   if (index == response.length - 1) {
                     _controller.onLoadMore();
                   }
@@ -91,11 +96,15 @@ class _FavTopicPageState extends State<FavTopicPage>
                           _controller.onRemove(index, item.id);
                         },
                       ),
-                      borderRadius: const BorderRadius.all(Radius.circular(6)),
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(6),
+                      ),
                       child: Container(
                         alignment: Alignment.centerLeft,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 11, vertical: 5),
+                          horizontal: 11,
+                          vertical: 5,
+                        ),
                         child: Text(
                           '# ${item.name}',
                           maxLines: 1,
@@ -109,14 +118,13 @@ class _FavTopicPageState extends State<FavTopicPage>
                     ),
                   );
                 },
-                childCount: response!.length,
-              ),
-            )
-          : HttpError(onReload: _controller.onReload),
+                itemCount: response!.length,
+              )
+            : HttpError(onReload: _controller.onReload),
       Error(:var errMsg) => HttpError(
-          errMsg: errMsg,
-          onReload: _controller.onReload,
-        ),
+        errMsg: errMsg,
+        onReload: _controller.onReload,
+      ),
     };
   }
 }
