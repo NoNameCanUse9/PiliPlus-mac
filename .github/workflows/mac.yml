@@ -10,7 +10,6 @@ on:
 jobs:
   build-macos-app:
     name: Release macOS
-    # 确保使用 macos-latest 以支持 macOS 构建环境
     runs-on: macos-latest
 
     steps:
@@ -26,56 +25,31 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml
 
-      # 启用 macOS 桌面支持
       - name: Enable macOS Desktop
         run: flutter config --enable-macos-desktop
 
-      # 更新版本号 (假设您在 pubspec.yaml 中使用的是 version: X.Y.Z+B 格式)
       - name: 更新版本号
-        # 使用 git rev-list --count HEAD 获取最新的提交次数作为 Build Number
         run: |
-          # 确保 yq 已安装
-          brew install yq
           version_name=$(yq e '.version' pubspec.yaml | cut -d "+" -f 1)
-          # 注意：sed -i '' 是 macOS/BSD sed 的用法，在 macOS 环境中无需修改。
           sed -i '' "s/version: .*/version: $version_name+$(git rev-list --count HEAD)/" pubspec.yaml
-        
+      
       - name: Get Flutter dependencies
         run: flutter pub get
-        
-      # --- 关键修改：运行 build.dart 脚本和打包 ---
-      - name: Build macOS App and Archive
+      # 运行构建脚本生成 build_config.dart
+      - name: Generate build_config.dart
         run: |
-          # 1. 运行 Dart 脚本 (生成 build_config.dart 或执行其他预构建任务)
-          echo "-> Running custom Dart build script..."
-          # 假设 build.dart 脚本路径为 lib/scripts/build.dart
+          chmod +x ./lib/scripts/build.dart
           dart lib/scripts/build.dart
+      - name: Build macOS
+        run: 
+          flutter build macos --release --no-codesign 
+          ln -sf ./build/ios/iphoneos Payload
+          zip -r9 piliplus-mac.app Payload/runner.app
 
-          # 2. 构建 macOS Release 版本
-          echo "-> Building macOS release..."
-          flutter build macos --release
 
-          # 3. 定义输出路径
-          APP_NAME=$(grep name pubspec.yaml | head -n 1 | awk '{print $2}')
-          RELEASE_DIR="build/macos/Build/Products/Release"
-          APP_PATH="$RELEASE_DIR/$APP_NAME.app"
-          ZIP_NAME="${APP_NAME}_macos_release.zip"
 
-          # 4. 打包为 ZIP 文件
-          # 确保 .app 文件存在
-          if [ -d "$APP_PATH" ]; then
-            echo "-> Creating ZIP archive: $ZIP_NAME"
-            # 使用 zip 命令将 .app 文件压缩，方便下载和分发
-            zip -r9 "$ZIP_NAME" "$APP_PATH"
-          else
-            echo "Error: macOS app not found at $APP_PATH"
-            exit 1
-          fi
-
-      - name: Upload macOS Zip Artifact
+      - name: Upload macOS app
         uses: actions/upload-artifact@v4
         with:
           name: macos-release
-          # 上传打包好的 .zip 文件
-          path: *.zip
-          # --- ------------------------------------ ---
+          path: build/macos/Build/Products/Release/
